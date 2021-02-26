@@ -1,0 +1,16 @@
+
+import "../filename.code"
+
+module test {
+    const MY_V*AR_0: i32 = 10;
+    const MY_VAR_1: i32 = 10;
+    const MY_VAR_2: i32 = 10;
+
+    pub fn foobar() -> String {
+        let x = "George";
+        x         
+    }
+    pub fn pi() -> f32 {
+        380
+    }
+}
