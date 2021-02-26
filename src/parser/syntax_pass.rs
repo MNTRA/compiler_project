@@ -31,37 +31,62 @@ use crate::{
         SourceLocation,
     },
 };
+use macros::create_token_handler;
 
-macro_rules! create_token_handler {
-    (
-        $NAME:ident,
-        pub fn tokenize(&self)$TOKENIZE_BLOCK:block
-    ) => {
-        pub struct $NAME<'a, 'b> {
-            tokenizer: SyntaxTokenizer<'a, 'b>
-        }
-        impl<'a, 'b> ::std::ops::Deref for $NAME<'a, 'b> {
-            type Target = SyntaxPassIter<'a>;
-            fn deref(&self) -> &Self::Target { &self.tokenizer }
-        }
-        
-        impl<'a, 'b> ::std::ops::DerefMut for $NAME<'a, 'b> {
-            fn deref_mut(&mut self) -> &mut Self::Target { &mut self.tokenizer }
-        }
-        impl<'a, 'b> $NAME<'a, 'b> {
-            pub fn tokenize(&self) $TOKENIZE_BLOCK
-        }
-    }
+/// Simple macro that proves a basic converting implmentation
+#[rustfmt::skip]
+macro_rules! create_token {
+    (Punctuation, $SELF:ident, $TY:ident) => {{
+        $SELF.create_and_buffer_syntax_token(
+            1,
+            SyntaxTokenType::Punctuation(PunctuationType::$TY)
+        );
+        return;
+    }};
+    (Keyword, $SELF:ident, $TY:ident) => {{
+        $SELF.create_and_buffer_syntax_token(
+            1,
+            SyntaxTokenType::Keyword(KeywordType::$TY)
+        );
+        return;
+    }};
+    (Control, $SELF:ident, $TY:ident) => {{
+        $SELF.create_and_buffer_syntax_token(
+            1,
+            SyntaxTokenType::Control(ControlType::$TY)
+        );
+        return;
+    }};
 }
 
 // UnknownTokenHandler ----------------------------------------------------------------
 
-create_token_handler!{
+create_token_handler! [
     WordTokenHandler,
-    pub fn tokenize(&self) {
-
+    pub fn tokenize(&mut self) {
+        let token = self.get_last_buffered_input_token();
+        match token.data.token_str() {
+            "let"       => create_token!(Keyword, self, Let),
+            "import"    => create_token!(Keyword, self, Import),
+            "if"        => create_token!(Keyword, self, If),
+            "else"      => create_token!(Keyword, self, Else),
+            "fn"        => create_token!(Keyword, self, Fn),
+            "this"      => create_token!(Keyword, self, This),
+            "match"     => create_token!(Keyword, self, Match),
+            "pub"       => create_token!(Keyword, self, Pub),
+            "class"     => create_token!(Keyword, self, Class),
+            "interface" => create_token!(Keyword, self, Interface),
+            "return"    => create_token!(Keyword, self, Return),
+            "module"    => create_token!(Keyword, self, Module),
+            "const"     => create_token!(Keyword, self, Const),
+            _ => {
+                self.create_identifer_token();
+            },
+        }
     }
-}
+];
+
+
 
 impl<'a, 'b> WordTokenHandler<'a, 'b> {
 
@@ -117,32 +142,6 @@ create_token_handler!{
 }
 
 /// SyntaxTokenizer ----------------------------------------------------------------
-
-/// Simple macro that proves a basic converting implmentation
-#[rustfmt::skip]
-macro_rules! create_token {
-    (Punctuation, $SELF:ident, $TY:ident) => {{
-        $SELF.create_and_buffer_syntax_token(
-            1,
-            SyntaxTokenType::Punctuation(PunctuationType::$TY)
-        );
-        return;
-    }};
-    (Keyword, $SELF:ident, $TY:ident) => {{
-        $SELF.create_and_buffer_syntax_token(
-            1,
-            SyntaxTokenType::Keyword(KeywordType::$TY)
-        );
-        return;
-    }};
-    (Control, $SELF:ident, $TY:ident) => {{
-        $SELF.create_and_buffer_syntax_token(
-            1,
-            SyntaxTokenType::Control(ControlType::$TY)
-        );
-        return;
-    }};
-}
 
 macro_rules! define_gen_parse_fn {
     ($MATCH:path, $TY:ident) => {
