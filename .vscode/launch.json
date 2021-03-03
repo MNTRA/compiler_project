@@ -5,6 +5,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Run Tests",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${workspaceFolder}/src/foo.ps1",
+            "cwd": "${workspaceFolder}",
+            "presentation": {
+                "hidden": false,
+                "group": "Tests",
+                "order": 1
+            }
+        },
+        {
             "type": "lldb",
             "request": "launch",
             "name": "Debug executable 'test_lang'",
@@ -42,6 +54,6 @@
             },
             "args": [],
             "cwd": "${workspaceFolder}"
-        }
+        },
     ]
 }

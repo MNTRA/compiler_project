@@ -1,8 +1,3 @@
-pub mod ast;
-pub mod syntax_pass;
-pub mod tokenizer;
-
-// std
 use std::{
     borrow::Cow,
     sync::Mutex,
@@ -18,13 +13,15 @@ use console::{
 };
 use lazy_static::lazy_static;
 
-// Internal
 use crate::{
-    parser::tokenizer::TokenData,
-    util::SourceLocation,
+    token::{
+        SyntaxToken,
+        SyntaxTokenType,
+        LiteralType,
+        KeywordType,
+        ControlType,
+    }
 };
-
-type IoResult = std::io::Result<()>;
 
 lazy_static! {
     pub static ref CONSOLE_PRINTER: Mutex<ConsolePrinter> = {
@@ -38,130 +35,9 @@ lazy_static! {
     };
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct SyntaxToken<'a> {
-    pub ty: SyntaxTokenType,
-    pub data: TokenData<'a>,
-}
+type IoResult = std::io::Result<()>;
 
-impl<'a> SyntaxToken<'a> {
-    pub fn null_token() -> Self {
-        Self {
-            ty: SyntaxTokenType::Null,
-            data: TokenData::new("", SourceLocation::new(0, 0, None)),
-        }
-    }
-}
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum SyntaxTokenType {
-    Punctuation(PunctuationType),
-    Keyword(KeywordType),
-    Identifier,
-    Literal(LiteralType),
-    Whitespace,
-    Control(ControlType),
-    Unknown,
-    Null,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum LiteralType {
-    String,
-    Char,
-    Integer,
-    Float,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum KeywordType {
-    Let,
-    Import,
-    If,
-    Else,
-    Fn,
-    This,
-    Match,
-    Pub,
-    Class,
-    Interface,
-    Return,
-    Module,
-    Const,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ControlType {
-    NewLine,
-    Tab,
-    Null,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum PunctuationType {
-    /// \+
-    Plus,
-    /// \-
-    Hyphen,
-    /// \_
-    UnderScore,
-    /// \*
-    Asterisk,
-    /// \/
-    Slash,
-    /// \\
-    BackSlash,
-    /// \)
-    RParen,
-    /// \(
-    LParen,
-    /// \>
-    RAngleBracket,
-    /// \<
-    LAngleBracket,
-    /// \}
-    RBrace,
-    /// \{
-    LBrace,
-    /// \]
-    RBracket,
-    /// \[
-    LBracket,
-    /// \=
-    Equals,
-    /// \|
-    Pipe,
-    /// \?
-    QuestionMark,
-    /// \!
-    Exclamation,
-    /// \&
-    Ampersand,
-    /// \.
-    Period,
-    /// \:
-    Colon,
-    /// \;
-    SemiColon,
-    /// \"
-    Quote,
-    /// \'
-    SingleQuote,
-    /// \%
-    Percent,
-    /// \#
-    Hash,
-    /// \@
-    At,
-    /// \$
-    Dollar,
-    /// \~
-    Tilde,
-    /// \`
-    BackQuote,
-}
-
-///
 /// Console Printer
 pub struct ConsolePrinter {
     width: usize,
@@ -362,13 +238,13 @@ impl ConsolePrinter {
             SyntaxTokenType::Literal(_) => self.print_literal_token(token),
             SyntaxTokenType::Keyword(_) => self.print_keyword_token(token),
             SyntaxTokenType::Whitespace => self.print_whitespace_token(token),
-            SyntaxTokenType::Control(c) => self.print_control_token(token),
+            SyntaxTokenType::Control(_) => self.print_control_token(token),
             SyntaxTokenType::Unknown => self.print_unknown_token(token),
             SyntaxTokenType::Null => unreachable!(),
         };
         match result {
             Ok(_) => {},
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
         }
     }
 
@@ -381,7 +257,7 @@ impl ConsolePrinter {
             let top = self.create_source_code_block_bounds_str(" SOURCE");
             self.term.write_line(&self.trunc_str(&top)).unwrap();
         });
-        static mut TEMP_LINE: usize = 0;
+        static mut TEMP_LINE: usize = 1;
         if token.is_some() {
             // Safety: safe as long as only 1 thread calls this function at a time
             if self.should_print_line_number {
