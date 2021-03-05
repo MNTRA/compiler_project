@@ -13,9 +13,8 @@ pub type PeekableResult<T> = std::result::Result<T, DynamicError>;
 /// Similar in functionality to `std::iter::Peekable` but allows
 /// users to peek any number of items into the stream.
 ///
-/// Internally `Peekable` stores a ring buffer that stores the items seen by
-/// the underlying iterator, returning items from the buffer when
-/// consumed
+/// Internally `Dynamic` holds an unbounded ring buffer that chaches items seen by
+/// the underlying iterator, returning items from the buffer when consumed.
 pub struct Dynamic<T: Iterator> {
     stream: T,
     buffer: VecDeque<T::Item>,
@@ -57,13 +56,9 @@ impl<T: Iterator> Dynamic<T> {
         return Ok(self.buffer.get(offset).unwrap());
     }
 
-    pub fn num_buffered_items(&self) -> usize {
-        self.buffer.len()
-    }
+    pub fn num_buffered_items(&self) -> usize { self.buffer.len() }
 
-    pub fn clear_buffer(&mut self) { 
-        self.buffer.clear();
-    }
+    pub fn clear_buffer(&mut self) { self.buffer.clear(); }
 
     // Private -------------------------------------------------------------
 
@@ -93,7 +88,7 @@ impl<T: Iterator> Iterator for Dynamic<T> {
     fn next(&mut self) -> Option<T::Item> {
         match self.consume() {
             Ok(item) => Some(item),
-            Err(_) => None
+            Err(_) => None,
         }
     }
 }
@@ -111,26 +106,6 @@ pub enum DynamicError {
     #[error("Reached end of stream before count")]
     OffsetOutOfRange(usize),
 }
-
-// / Analagous to `Iterator::next()`
-// /
-// / Gets the next item from the stream by first returning elements from the
-// / buffer and only advancing the underlying iterator if the buffer is
-// / empty
-// fn get_next_item<T>(p: T) -> Option<T::Item> {
-//     if self.buffer.is_empty() {
-//         T::next(&mut self.stream)
-//     } else {
-//         if DEBUG {
-//             match self.buffer.pop_front() {
-//                 Some(item) => Some(item),
-//                 None => panic!("Buffer was empty"),
-//             }
-//         } else {
-//             self.buffer.pop_front()
-//         }
-//     }
-// }
 
 // Tests ===================================================================
 

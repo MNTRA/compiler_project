@@ -13,14 +13,12 @@ use console::{
 };
 use lazy_static::lazy_static;
 
-use crate::{
-    token::{
-        SyntaxToken,
-        SyntaxTokenType,
-        LiteralType,
-        KeywordType,
-        ControlType,
-    }
+use crate::token::{
+    ControlType,
+    KeywordType,
+    LiteralType,
+    SyntaxToken,
+    SyntaxTokenType,
 };
 
 lazy_static! {
@@ -36,7 +34,6 @@ lazy_static! {
 }
 
 type IoResult = std::io::Result<()>;
-
 
 /// Console Printer
 pub struct ConsolePrinter {
@@ -152,43 +149,42 @@ impl ConsolePrinter {
         token: &SyntaxToken,
     ) -> IoResult {
         match token.ty {
-            SyntaxTokenType::Keyword(KeywordType::Let) => self.term.write_str(&format!(
+            // SyntaxTokenType::Keyword(KeywordType::Pub) => self.term.write_str(&format!(
+            //     "{}",
+            //     style(token.data.token_str())
+            //         .color256(Self::BLUE)
+            //         .on_black()
+            // )),
+            // SyntaxTokenType::Keyword(KeywordType::Module) => self.term.write_str(&format!(
+            //     "{}",
+            //     style(token.data.token_str())
+            //         .color256(Self::BLUE)
+            //         .on_black()
+            // )),
+            // SyntaxTokenType::Keyword(KeywordType::Import) => self.term.write_str(&format!(
+            //     "{}",
+            //     style(token.data.token_str())
+            //         .color256(Self::BLUE)
+            //         .on_black()
+            // )),
+            // SyntaxTokenType::Keyword(KeywordType::Fn) => self.term.write_str(&format!(
+            //     "{}",
+            //     style(token.data.token_str())
+            //         .color256(Self::PURPLE)
+            //         .on_black()
+            // )),
+            // SyntaxTokenType::Keyword(_) => self.term.write_str(&format!(
+            //     "{}",
+            //     style(token.data.token_str())
+            //         .color256(Self::BLUE)
+            //         .on_black()
+            // )),
+            _ => self.term.write_str(&format!(
                 "{}",
                 style(token.data.token_str())
                     .color256(Self::BLUE)
                     .on_black()
             )),
-            SyntaxTokenType::Keyword(KeywordType::Pub) => self.term.write_str(&format!(
-                "{}",
-                style(token.data.token_str())
-                    .color256(Self::BLUE)
-                    .on_black()
-            )),
-            SyntaxTokenType::Keyword(KeywordType::Module) => self.term.write_str(&format!(
-                "{}",
-                style(token.data.token_str())
-                    .color256(Self::BLUE)
-                    .on_black()
-            )),
-            SyntaxTokenType::Keyword(KeywordType::Import) => self.term.write_str(&format!(
-                "{}",
-                style(token.data.token_str())
-                    .color256(Self::BLUE)
-                    .on_black()
-            )),
-            SyntaxTokenType::Keyword(KeywordType::Fn) => self.term.write_str(&format!(
-                "{}",
-                style(token.data.token_str())
-                    .color256(Self::PURPLE)
-                    .on_black()
-            )),
-            SyntaxTokenType::Keyword(_) => self.term.write_str(&format!(
-                "{}",
-                style(token.data.token_str())
-                    .color256(Self::BLUE)
-                    .on_black()
-            )),
-            _ => unreachable!(),
         }
     }
     fn print_whitespace_token(

@@ -1,5 +1,5 @@
 [package]
-name = "macros"
+name = "parser_macros"
 version = "0.1.0"
 authors = ["George Phillips <35049013+MNTRA@users.noreply.github.com>"]
 edition = "2018"

@@ -20,11 +20,11 @@ pub struct KeywordDefinition {
     struct_ident: Ident,
 }
 
-struct DefineKeywordTokenInput {
+struct DefineKeywordInput {
     keywords: Vec<KeywordDefinition>,
 }
 
-impl DefineKeywordTokenInput {
+impl DefineKeywordInput {
     fn check_well_formed(
         string: &str,
         span: impl Spanned,
@@ -57,14 +57,14 @@ impl DefineKeywordTokenInput {
     }
 }
 
-impl Parse for DefineKeywordTokenInput {
+impl Parse for DefineKeywordInput {
     fn parse(input: ParseStream) -> Result<Self> {
         let parser = Punctuated::<LitStr, Token![,]>::parse_terminated;
         let args = parser(input)?;
         let mut keyword_definitions: Vec<KeywordDefinition> = Vec::new();
         for arg in args {
             let token_str = arg.value();
-            DefineKeywordTokenInput::check_well_formed(&token_str, &arg)?;
+            DefineKeywordInput::check_well_formed(&token_str, &arg)?;
             let token_struct_ident = token_str.to_case(Case::Pascal);
             let struct_ident = parse_str(&token_struct_ident)?;
 
@@ -73,14 +73,14 @@ impl Parse for DefineKeywordTokenInput {
                 struct_ident,
             });
         }
-        Ok(DefineKeywordTokenInput {
+        Ok(DefineKeywordInput {
             keywords: keyword_definitions,
         })
     }
 }
 
-pub(crate) fn define_keyword_token_impl(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DefineKeywordTokenInput);
+pub(crate) fn define_keyword_impl(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DefineKeywordInput);
     let mut token_defs = Vec::new();
     for keyword in input.keywords {
         let KeywordDefinition {
@@ -89,19 +89,34 @@ pub(crate) fn define_keyword_token_impl(input: TokenStream) -> TokenStream {
         } = keyword;
 
         token_defs.push(quote! {
+            #[derive(Debug, Clone, Copy)]
             pub struct #struct_ident;
-            impl Token for #struct_ident {
-                const NAME: &'static str = #token_str;
+            impl crate::parser::Parser<()> for #struct_ident {
+                type Output = Self;
+                fn parse (
+                    input: &mut crate::parser::ParseStream,
+                    data: ParseData<()>
+                ) -> crate::parser::ParseResult<Self::Output> {
+                    input.if_next_is (
+                        ::lexer::SyntaxTokenType::Identifier,
+                        |input, t| {
+                            match t.data.src {
+                                #token_str => {
+                                    input.consume();
+                                    Ok(Self)
+                                },
+                                _ => Err(anyhow::Error::new (
+                                        crate::parser::ParseError::TokenDidntMatch
+                                    ))
+                            }
+                        }
+                    )
+                }
             }
         });
     }
-
-    let main_block = quote! {
-        #(#token_defs)*
-    };
-
     let out = quote! {
-        #main_block
+        #(#token_defs)*
     };
 
     TokenStream::from(out)

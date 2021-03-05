@@ -96,4 +96,3 @@ pub(crate) fn create_syntax_tokenizer_impl(input: TokenStream) -> TokenStream {
     };
     TokenStream::from(out)
 }
-

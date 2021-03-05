@@ -1,11 +1,2 @@
 
-import "../filename.code"
-
-module {
-
-    pub fn foobar(self) -> f32 {
-        3.14159.
-    }
-    
-}
-
+pub fn test(arg: i32, arg2: i32) -> () {}

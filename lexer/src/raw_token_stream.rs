@@ -1,9 +1,10 @@
 use std::str::Chars;
 
 use macros::create_raw_tokenizer;
+
 use crate::{
-    span::Span,
     cursor::Cursor,
+    span::Span,
     token::{
         ControlType,
         PunctuationType,
@@ -13,11 +14,8 @@ use crate::{
     },
 };
 
-
 // Raw Tokens =================================================================
 
-/// A RawTokenStream operates over a single line of source code
-/// tokenizing it as it goes
 pub struct RawTokenStream<'a> {
     source: &'a str,
     cursor: Cursor<Chars<'a>>,
@@ -38,8 +36,7 @@ impl<'a> Iterator for RawTokenStream<'a> {
     #[rustfmt::skip]
     fn next(&mut self) -> Option<RawToken<'a>> {
         if let Ok(c) = self.cursor.peek(0) {
-            let token = 
-            if is_whitespace(c) {
+            let token = if is_whitespace(c) {
                 WSTokenizer::new(&self.source, &mut self.cursor).tokenize()
             } else if is_control(c) {
                 CCTokenizer::new(&self.source, &mut self.cursor).tokenize()

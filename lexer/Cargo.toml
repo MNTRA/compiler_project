@@ -21,6 +21,7 @@ version = "*"
 
 [dependencies.macros]
 path = "macros"
+package = "lexer_macros"
 
 [dependencies.collections]
 path = "../collections"

@@ -2,9 +2,7 @@ use macros::create_syntax_tokenizer;
 use paste::paste;
 
 use crate::{
-    cursor::{
-        Cursor,
-    },
+    cursor::Cursor,
     raw_token_stream::RawTokenStream,
     span::Span,
     token::{
@@ -81,7 +79,7 @@ macro_rules! simple_pass_through {
 macro_rules! create_keyword_token {
     ($SELF:ident, $TY:ident) => {{
         $SELF.consume();
-        return $SELF.create_token(SyntaxTokenType::Keyword(KeywordType::$TY))
+        return $SELF.create_token(SyntaxTokenType::Keyword(KeywordType::$TY));
     }};
 }
 
@@ -89,24 +87,29 @@ create_syntax_tokenizer! {
     WordTokenizer,
     fn tokenize(&mut self) -> SyntaxToken<'b> {
         type ST = SyntaxTokenType;
-
         match self.peek(0).data.src {
             "let"       => create_keyword_token!(self, Let       ),
-            "import"    => create_keyword_token!(self, Import    ),
-            "if"        => create_keyword_token!(self, If        ),
-            "Else"      => create_keyword_token!(self, Else      ),
             "fn"        => create_keyword_token!(self, Fn        ),
-            "This"      => create_keyword_token!(self, This      ),
-            "Match"     => create_keyword_token!(self, Match     ),
             "pub"       => create_keyword_token!(self, Pub       ),
-            "class"     => create_keyword_token!(self, Class     ),
-            "interface" => create_keyword_token!(self, Interface ),
-            "return"    => create_keyword_token!(self, Return    ),
             "module"    => create_keyword_token!(self, Module    ),
-            "const"     => create_keyword_token!(self, Const     ),
             _ => {
                 self.consume();
                 self.create_token(ST::Identifier)
+            }
+        }
+    }
+}
+
+impl<'a, 'b> WordTokenizer<'a, 'b> {
+    fn tokenize_identifier(tkn: &mut SyntaxTokenizer<'a, 'b>) -> SyntaxToken<'b> {
+        type ST = SyntaxTokenType;
+        loop {
+            if tkn.tokenize_underscore(0).is_ok() {
+                tkn.consume();
+            } else if tkn.tokenize_word(0).is_ok() {
+                tkn.consume();
+            } else {
+                return tkn.create_token(ST::Identifier);
             }
         }
     }
@@ -155,7 +158,18 @@ create_syntax_tokenizer! {
         match p {
             PT::Plus          => simple_pass_through!(Punctuation, self, Plus         ),
             PT::Hyphen        => simple_pass_through!(Punctuation, self, Hyphen       ),
-            PT::UnderScore    => simple_pass_through!(Punctuation, self, UnderScore   ),
+            PT::UnderScore    => {
+                loop {
+                    self.consume();
+                    if self.tokenize_underscore(0).is_ok() {
+                        self.consume();
+                    } else if self.tokenize_word(0).is_ok() {
+                        return WordTokenizer::tokenize_identifier(&mut *self);
+                    } else {
+                        return self.create_token(ST::Punctuation(PT::UnderScore));
+                    }
+                }
+            },
             PT::Asterisk      => simple_pass_through!(Punctuation, self, Asterisk     ),
             PT::Slash         => simple_pass_through!(Punctuation, self, Slash        ),
             PT::BackSlash     => simple_pass_through!(Punctuation, self, BackSlash    ),
@@ -187,7 +201,7 @@ create_syntax_tokenizer! {
             },
             PT::SingleQuote => {
                 self.consume();
-                let mut func = || {
+                let _: Result<(), ()> = (|| {
                     self.if_next_is(
                         TT::Word,
                         |this| {
@@ -199,8 +213,7 @@ create_syntax_tokenizer! {
                     self.tokenize_quote(0)?;
                     self.consume();
                     Ok(())
-                };
-                let _: Result<(), ()> = func();
+                })();
                 return self.create_token(ST::Literal(LT::Char));
             },
             PT::Percent    => simple_pass_through!(Punctuation, self, Percent   ),

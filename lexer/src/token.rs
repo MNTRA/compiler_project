@@ -2,9 +2,7 @@
 //     define_keyword_token,
 // };
 
-use crate::{
-    span::Span,
-};
+use crate::span::Span;
 
 // Syntax Tokens ===============================================================
 
@@ -16,9 +14,9 @@ pub struct SyntaxToken<'a> {
 
 #[derive(Debug, Clone, Copy)]
 pub struct SyntaxTokenData<'a> {
-    pub(crate) start_line: usize,
-    pub(crate) src: &'a str,
-    pub(crate) span: Span,
+    pub start_line: usize,
+    pub src: &'a str,
+    pub span: Span,
 }
 
 impl<'a> SyntaxTokenData<'a> {
@@ -28,8 +26,8 @@ impl<'a> SyntaxTokenData<'a> {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SyntaxTokenType {
     Punctuation(PunctuationType),
-    Keyword(KeywordType),
     Identifier,
+    Keyword(KeywordType),
     Literal(LiteralType),
     Whitespace,
     Control(ControlType),
@@ -48,20 +46,10 @@ pub enum LiteralType {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum KeywordType {
     Let,
-    Import,
-    If,
-    Else,
     Fn,
-    This,
-    Match,
     Pub,
-    Class,
-    Interface,
-    Return,
     Module,
-    Const,
 }
-
 
 // Raw Tokens ==================================================================
 
@@ -162,22 +150,3 @@ pub enum PunctuationType {
     /// \,
     Comma,
 }
-
-
-
-// type ParseResult<T> = Result<T, ()>;
-
-// pub trait Token {
-//     const NAME: &'static str;
-// }
-
-// define_keyword_token! {
-//     "import",
-//     "let",
-// }
-
-// #[macro_export]
-// macro_rules! Token {
-//     [import]  => { ::lexer::token::Import };
-//     [let]     => { ::lexer::token::Let    };
-// }

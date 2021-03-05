@@ -203,9 +203,9 @@ mod tests {
         Term,
     };
     use pretty_assertions::assert_eq;
+    use util::*;
 
     use super::*;
-    use util::*;
 
     lazy_static::lazy_static! {
         /// static console handle ensures `set_colors_enabled(true)`
@@ -225,52 +225,52 @@ mod tests {
             Ok(())
         })
     }
-    
+
     #[test]
     fn push_back_multiple_wrapping() -> TestResult {
         catch_err("push_back_multiple_wrapping", || {
             // Does the push_back() fn work if called multiple times and wraps
             let mut fifo: StackFifo<i32, 4> = StackFifo::new();
-            
+
             fifo.push_back(1).boxed()?;
             fifo.push_back(2).boxed()?;
             fifo.push_back(3).boxed()?;
             fifo.push_back(4).boxed()?;
-            
+
             let _ = fifo.pop_front();
             let _ = fifo.pop_front();
-            
+
             fifo.push_back(5).boxed()?;
             fifo.push_back(6).boxed()?;
             Ok(())
         })
     }
-    
+
     #[test]
     fn push_back_multiple_wrapping_correctness() -> TestResult {
         catch_err("push_back_multiple_wrapping_correctness", || {
             // Does the push_back() fn correctly insert values if
             // called multiple times and wraps
             let mut fifo: StackFifo<i32, 5> = StackFifo::new();
-            
+
             // [1, 2, 3, 4, 5]
             fifo.push_back(1).boxed()?;
             fifo.push_back(2).boxed()?;
             fifo.push_back(3).boxed()?;
             fifo.push_back(4).boxed()?;
             fifo.push_back(5).boxed()?;
-            
+
             // [ _, _, _, 4, 5]
             assert_eq!(fifo.pop_front().boxed()?, 1);
             assert_eq!(fifo.pop_front().boxed()?, 2);
             assert_eq!(fifo.pop_front().boxed()?, 3);
-            
+
             // [ 6, 7, _, 4, 5]
             fifo.push_back(6).boxed()?;
             fifo.push_back(7).boxed()?;
-            
+
             let check = [4, 5, 6, 7];
-            
+
             for (i, item) in fifo.iter().enumerate() {
                 Equals::test(item, &check[i]).boxed()?;
             }
@@ -287,18 +287,17 @@ mod tests {
             fifo.push_back(2).boxed()?;
             fifo.push_back(3).boxed()?;
             fifo.push_back(4).boxed()?;
-            
+
             assert_eq!(fifo.pop_front().boxed()?, 1);
             assert_eq!(fifo.pop_front().boxed()?, 2);
             assert_eq!(fifo.pop_front().boxed()?, 3);
             assert_eq!(fifo.pop_front().boxed()?, 4);
-            
+
             Ok(())
         })
     }
-    
+
     // Push Back Tests =====================================================
-    
 
     #[test]
     fn fifo_push_back_overflow_err() -> TestResult {
@@ -317,32 +316,30 @@ mod tests {
     pub mod util {
         #![allow(dead_code)]
 
-        use super::*;
         use std::marker::PhantomData;
+
+        use super::*;
 
         pub type TestResult = Result<(), TestError>;
 
         #[derive(Error)]
-        pub struct Equals<L, R = L> 
+        pub struct Equals<L, R = L>
         where
             L: std::fmt::Display + PartialEq<R>,
-            R: std::fmt::Display
+            R: std::fmt::Display,
         {
             msg: String,
             /// fn() -> R because we dont own any L or R but we need to
             /// use the type param in the struct def.
             /// Generic is used in return type to maintain covariance
-            _marker: PhantomData<(
-                fn() -> L,
-                fn() -> R,
-            )>
+            _marker: PhantomData<(fn() -> L, fn() -> R)>,
         }
 
         // TODO (George): Pretty printing??
         impl<L, R> std::fmt::Display for Equals<L, R>
         where
             L: std::fmt::Display + PartialEq<R>,
-            R: std::fmt::Display
+            R: std::fmt::Display,
         {
             fn fmt(
                 &self,
@@ -355,7 +352,7 @@ mod tests {
         impl<L, R> std::fmt::Debug for Equals<L, R>
         where
             L: std::fmt::Display + PartialEq<R>,
-            R: std::fmt::Display
+            R: std::fmt::Display,
         {
             fn fmt(
                 &self,
@@ -368,20 +365,20 @@ mod tests {
         impl<L, R> Equals<L, R>
         where
             L: std::fmt::Display + PartialEq<R>,
-            R: std::fmt::Display
+            R: std::fmt::Display,
         {
-            /// Return `Err(Self)` 
+            /// Return `Err(Self)`
             /// if ```left != right ``` is true
             ///
             /// else return `Ok(())`
-            pub fn test<'a> (
+            pub fn test<'a>(
                 left: &L,
                 right: &R,
-            ) -> Result<(), Self>{
+            ) -> Result<(), Self> {
                 if left != right {
-                    Err( Self { 
+                    Err(Self {
                         msg: format!("{} != {}", left, right),
-                        _marker: PhantomData
+                        _marker: PhantomData,
                     })
                 } else {
                     Ok(())
@@ -455,14 +452,14 @@ mod tests {
 
         pub trait BoxedErr<T, E>
         where
-            E: std::error::Error
+            E: std::error::Error,
         {
             fn boxed(self) -> Result<T, Box<E>>;
         }
-        
+
         impl<T, E> BoxedErr<T, E> for Result<T, E>
         where
-            E: std::error::Error
+            E: std::error::Error,
         {
             fn boxed(self) -> Result<T, Box<E>> {
                 match self {

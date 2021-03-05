@@ -19,24 +19,39 @@ impl Span {
     }
 
     pub fn start(&self) -> usize { self.start }
-    pub fn end  (&self) -> usize { self.end }
+    pub fn end(&self) -> usize { self.end }
 
-    pub fn set_start(&mut self, start: usize) {
+    pub fn set_start(
+        &mut self,
+        start: usize,
+    ) {
         self.start = start;
     }
-    pub fn set_end(&mut self, end: usize) {
+    pub fn set_end(
+        &mut self,
+        end: usize,
+    ) {
         self.end = end;
     }
 
-    pub fn add_to_end(&mut self, amt: usize) {
+    pub fn add_to_end(
+        &mut self,
+        amt: usize,
+    ) {
         self.end += amt;
     }
 
-    pub fn add_to_start(&mut self, amt: usize) {
+    pub fn add_to_start(
+        &mut self,
+        amt: usize,
+    ) {
         self.start += amt;
     }
 
-    pub fn offset_by(&mut self, amt: usize) {
+    pub fn offset_by(
+        &mut self,
+        amt: usize,
+    ) {
         self.start += amt;
         self.end += amt;
     }
@@ -44,8 +59,7 @@ impl Span {
     pub fn len(&self) -> usize { self.end - self.start + 1 }
 }
 
-impl std::ops::AddAssign<Span> for Span 
-{
+impl std::ops::AddAssign<Span> for Span {
     fn add_assign(
         &mut self,
         other: Self,
@@ -57,8 +71,7 @@ impl std::ops::AddAssign<Span> for Span
     }
 }
 
-impl std::ops::AddAssign<usize> for Span 
-{
+impl std::ops::AddAssign<usize> for Span {
     fn add_assign(
         &mut self,
         amt: usize,
