@@ -1,2 +1,2 @@
 
- pub __ (arg: &mut i32, arg2: i32) -> (i32, test) {}
+ pub _test_test_(arg: &mut i32, arg2: i32) -> (i32, test) {}

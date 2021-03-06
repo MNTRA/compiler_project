@@ -14,15 +14,20 @@ pub fn run() {
     let mut stream = SyntaxTokenStream::new(code);
     let mut console = CONSOLE_PRINTER.lock().unwrap();
     
+    let mut tokens = Vec::new();
+
     loop {
         let token = stream.next();
         unsafe { console.print_syntax_token(token) }
+        tokens.push(token);
         //std::thread::sleep(std::time::Duration::from_micros(40));
         if let None = token {
             break;
         }
     }
     
+    //println!("{:#?}", tokens);
+
     let ast = parse_stream::SyntaxTokenParser::new(code).parse().unwrap();
     println!("{:#?}", ast);
 }

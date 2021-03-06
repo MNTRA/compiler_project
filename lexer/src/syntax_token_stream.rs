@@ -103,12 +103,10 @@ create_syntax_tokenizer! {
 impl<'a, 'b> WordTokenizer<'a, 'b> {
     fn tokenize_identifier(tkn: &mut SyntaxTokenizer<'a, 'b>) -> SyntaxToken<'b> {
         type ST = SyntaxTokenType;
+        // Concat underscores and words into a single identifer
         loop {
-            if tkn.tokenize_underscore(0).is_ok() {
-                tkn.consume();
-            } else if tkn.tokenize_word(0).is_ok() {
-                tkn.consume();
-            } else {
+            while let Ok(_) = tkn.tokenize_underscore(0) {}
+            if tkn.tokenize_word(0).is_err() {
                 return tkn.create_token(ST::Identifier);
             }
         }
@@ -160,9 +158,8 @@ create_syntax_tokenizer! {
             PT::Hyphen        => simple_pass_through!(Punctuation, self, Hyphen       ),
             PT::UnderScore    => {
                 loop {
-                    self.consume();
+                    //self.consume();
                     if self.tokenize_underscore(0).is_ok() {
-                        self.consume();
                     } else if self.tokenize_word(0).is_ok() {
                         return WordTokenizer::tokenize_identifier(&mut *self);
                     } else {
