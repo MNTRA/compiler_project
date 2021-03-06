@@ -86,15 +86,15 @@ macro_rules! create_keyword_token {
 create_syntax_tokenizer! {
     WordTokenizer,
     fn tokenize(&mut self) -> SyntaxToken<'b> {
-        type ST = SyntaxTokenType;
         match self.peek(0).data.src {
             "let"       => create_keyword_token!(self, Let       ),
             "fn"        => create_keyword_token!(self, Fn        ),
+            "mut"       => create_keyword_token!(self, Mut       ),
             "pub"       => create_keyword_token!(self, Pub       ),
             "module"    => create_keyword_token!(self, Module    ),
             _ => {
                 self.consume();
-                self.create_token(ST::Identifier)
+                WordTokenizer::tokenize_identifier(&mut *self)
             }
         }
     }
@@ -249,7 +249,7 @@ macro_rules! define_tokenizer_fn {
     ($MATCH:path, $TY:ident) => {
         paste! {
             #[allow(dead_code)]
-            fn [<tokenize_ $TY:lower >](&mut self, offset: usize) -> Result<(), ()> {
+            fn [<tokenize_ $TY:lower>](&mut self, offset: usize) -> Result<(), ()> {
                 if let Ok(token) = self.stream.cursor.peek(offset) {
                     match token.ty {
                         $MATCH => {

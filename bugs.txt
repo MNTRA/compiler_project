@@ -1,0 +1,6 @@
+bugs
+
+1: _ tokenization
+_ chars dont like being next to anything other than Whitespace
+if you name fn name_() the tokens are malformed but
+fn name_ () is ok

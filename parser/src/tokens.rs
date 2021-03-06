@@ -61,6 +61,7 @@ macro_rules! create_parser {
 // Keywords
 create_parser!(Keyword, Let);
 create_parser!(Keyword, Fn);
+create_parser!(Keyword, Mut);
 create_parser!(Keyword, Pub);
 create_parser!(Keyword, Module);
 
@@ -139,6 +140,7 @@ macro_rules! Token {
     // Keywords
     [Let   ] => { crate::tokens::Let    };
     [Fn    ] => { crate::tokens::Fn     };
+    [Mut   ] => { crate::tokens::Mut    };
     [Pub   ] => { crate::tokens::Pub    };
     [Module] => { crate::tokens::Module };
 
@@ -178,6 +180,8 @@ macro_rules! Token {
     ["`" ] => [ crate::tokens::BackQuote    ];
     ["," ] => [ crate::tokens::Comma        ];
     ["=="] => [ crate::tokens::EqEq         ];
+    ["->"] => [ crate::tokens::RArrow       ];
+    ["<-"] => [ crate::tokens::LArrow       ];
 }
 
 /// `==`
@@ -187,6 +191,28 @@ impl<'a> Parser<'a> for EqEq {
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
         stream.parse::<Token!["="]>()?;
         stream.parse_immediate::<Token!["="]>()?;
+        Ok(Self)
+    }
+}
+
+/// `->`
+pub struct RArrow;
+impl<'a> Parser<'a> for RArrow {
+    type Output = Self;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        stream.parse::<Token!["-"]>()?;
+        stream.parse_immediate::<Token![">"]>()?;
+        Ok(Self)
+    }
+}
+
+/// `<-`
+pub struct LArrow;
+impl<'a> Parser<'a> for LArrow {
+    type Output = Self;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        stream.parse::<Token!["<"]>()?;
+        stream.parse_immediate::<Token!["-"]>()?;
         Ok(Self)
     }
 }

@@ -1,10 +1,12 @@
-use std::marker::PhantomData;
-
 use crate::{
     parse_stream::{
         ParseError,
         ParseResult,
         ParseStream,
+    },
+    parsers::{
+        Punctuated,
+        Enclosed,
     },
     Parser,
     Token,
@@ -81,7 +83,7 @@ impl Default for Visibility {
 #[derive(Default, Debug)]
 pub struct FuncItem {
     pub vis: Visibility,
-    pub sig: FnSig,
+    pub sig: FnSignature,
 }
 
 impl<'a> Parser<'a> for FuncItem {
@@ -89,101 +91,119 @@ impl<'a> Parser<'a> for FuncItem {
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
         let mut out = FuncItem::default();
         stream.parse::<Token![Fn]>()?;
-        out.sig = stream.parse::<FnSig>()?;
+        out.sig = stream.parse::<FnSignature>()?;
         Ok(out)
     }
 }
 
 #[derive(Default, Debug)]
-pub struct FnSig {
+pub struct FnSignature {
     ident: Token![Ident],
     args: Vec<FnArg>,
+    ret: Type,
+    scope: Vec<ScopeItem>
 }
 
-impl<'a> Parser<'a> for FnSig {
+type FuncArgs = Enclosed<Token!["("], Option<Punctuated<FnArg, Token![","]>>, Token![")"]>;
+
+impl<'a> Parser<'a> for FnSignature {
     type Output = Self;
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        let mut out = FnSig::default();
+        let mut out = FnSignature::default();
         out.ident = stream.parse::<Token![Ident]>()?;
-        type FuncArgs = Enclosed<Token!["("], Option<Punctuated<FnArg, Token![","]>>, Token![")"]>;
         out.args = stream.parse::<FuncArgs>()?.unwrap_or_default();
+        stream.parse::<Token!["->"]>()?;
+        out.ret = stream.parse::<Type>()?;
+        // stream.parse::<Token!["{"]>()?;
+        // stream.parse::<Token!["}"]>()?;
+        out.scope = stream.parse::<Scope>()?.unwrap_or_default();
         Ok(out)
     }
 }
 
 #[derive(Default, Debug)]
 pub struct FnArg {
+    mutable: bool,
     ident: Token![Ident],
-    ty: Token![Ident],
+    ty: Type,
 }
 
 impl<'a> Parser<'a> for FnArg {
     type Output = Self;
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
         let mut out = FnArg::default();
+        out.mutable = stream.parse::<Option<Token![Mut]>>()?.is_some();
         out.ident = stream.parse::<Token![Ident]>()?;
         stream.parse::<Token![":"]>()?;
-        out.ty = stream.parse::<Token![Ident]>()?;
+        out.ty = stream.parse::<Type>()?;
         Ok(out)
     }
 }
 
-pub struct Punctuated<T, U> {
-    _marker: PhantomData<(fn() -> T, fn() -> U)>,
-}
+pub type Scope = Enclosed<Token!["{"], Option<Punctuated<ScopeItem, Token![";"]>>, Token!["}"]>;
 
-impl<'a, T, U> Parser<'a> for Punctuated<T, U>
-where
-    T: Parser<'a>,
-    U: Parser<'a>,
-{
-    type Output = Vec<T::Output>;
+#[derive(Default, Debug)]
+pub struct ScopeItem;
+impl<'a> Parser<'a> for ScopeItem {
+    type Output = Self;
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        let mut out = Vec::with_capacity(3);
-        loop {
-            let item = stream.parse::<T>()?;
-            out.push(item);
-            match stream.parse::<U>() {
-                Ok(_) => continue,
-                Err(_) => break,
-            };
-        }
-        Ok(out)
+        Ok(ScopeItem::default())
     }
 }
 
-pub struct Enclosed<T, X, U> {
-    _marker: PhantomData<(fn() -> T, fn() -> X, fn() -> U)>,
+
+#[derive(Debug)]
+pub enum Type {
+    Tuple(Vec<TypeSig>),
+    Standalone(TypeSig)
 }
 
-impl<'a, T, X, U> Parser<'a> for Enclosed<T, X, U>
-where
-    T: Parser<'a>,
-    X: Parser<'a>,
-    U: Parser<'a>,
-{
-    type Output = X::Output;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        let out: Self::Output;
-        stream.parse::<T>()?;
-        out = stream.parse::<X>()?;
-        stream.parse::<U>()?;
-        Ok(out)
-    }
+type Tuple =  Enclosed<Token!["("], Option<Punctuated<TypeSig, Token![","]>>, Token![")"]>;
+
+impl Default for Type {
+    fn default() -> Self { Self::Tuple(Vec::new()) }
 }
 
-impl<'a, T> Parser<'a> for Option<T> 
-where
-    T: Parser<'a>
-{
-    type Output = Option<T::Output>;
+impl<'a> Parser<'a> for Type {
+    type Output = Self;
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        match stream.parse::<T>() {
-            Ok(item) => return Ok(Some(item)),
-            Err(err) => match err {
-                ParseError::UnexpectedToken(_) => Ok(None),
-                ParseError::EndOfTokenStream => Err(err),
-            },
+        if let Ok(type_sig) = stream.parse::<TypeSig>() {
+            Ok(Type::Standalone(type_sig))
+        } else {
+            let tuple_types = stream.parse::<Tuple>()?.unwrap_or_default();
+            Ok(Type::Tuple(tuple_types))
         }
     }
 }
+
+#[derive(Default, Debug)]
+pub struct TypeSig {
+    reference: Option<TypeRef>,
+    ident: Token![Ident],
+}
+
+impl<'a> Parser<'a> for TypeSig {
+    type Output = Self;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        let mut out = TypeSig::default();
+        out.reference = stream.parse::<Option<TypeRef>>()?;
+        out.ident = stream.parse::<Token![Ident]>()?;
+        Ok(out)
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct TypeRef {
+    mutable: bool,
+}
+
+impl<'a> Parser<'a> for TypeRef {
+    type Output = Self;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        let mut out = TypeRef::default();
+        stream.parse::<Token!["&"]>()?;
+        out.mutable = stream.parse::<Option<Token![Mut]>>()?.is_some();
+        return Ok(out);
+    }
+}
+

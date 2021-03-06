@@ -47,6 +47,7 @@ pub enum LiteralType {
 pub enum KeywordType {
     Let,
     Fn,
+    Mut,
     Pub,
     Module,
 }

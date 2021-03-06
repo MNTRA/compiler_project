@@ -9,7 +9,7 @@ use lexer::{
 };
 use thiserror::Error;
 
-use crate::{Parser, ast::Ast, parsers::scopes::GlobalScope};
+use crate::{Parser, ast::Ast, parsers::common::GlobalScope};
 
 pub type ParseResult<T> = Result<T, ParseError>;
 
@@ -117,7 +117,10 @@ impl<'src> ParseStream<'src> {
             Ok(token) => Ok(token.clone()),
             Err(e) => match e {
                 DynamicError::EndOfStream => Err(ParseError::EndOfTokenStream),
-                _ => unreachable!(),
+                _ => {
+                    println!("{:#?}", e);
+                    unreachable!()
+                },
             },
         }
     }

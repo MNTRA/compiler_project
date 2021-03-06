@@ -50,7 +50,11 @@ impl<T: Iterator> Dynamic<T> {
                 count += 1;
                 self.buffer.push_back(item);
             } else {
-                return Err(DynamicError::OffsetOutOfRange(count));
+                if count == 0 {
+                    return Err(DynamicError::EndOfStream);
+                } else {
+                    return Err(DynamicError::OffsetOutOfRange(count));
+                }
             }
         }
         return Ok(self.buffer.get(offset).unwrap());

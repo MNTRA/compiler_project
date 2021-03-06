@@ -1,4 +1,4 @@
-use crate::parsers::scopes::GlobalScope;
+use crate::parsers::common::GlobalScope;
 
 //use crate::grammars::Scope;
 
