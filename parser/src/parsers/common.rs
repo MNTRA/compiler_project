@@ -5,13 +5,20 @@ use crate::{
         ParseStream,
     },
     parsers::{
-        Punctuated,
-        Enclosed,
+        combinators::{
+            Enclosed,
+            Punctuated,
+        },
+        function::FuncItem,
     },
     Parser,
     Token,
 };
 
+use super::expressions::Expression;
+
+
+/// The outermost scope of the translation unit.
 #[derive(Debug, Default)]
 pub struct GlobalScope {
     functions: Vec<FuncItem>,
@@ -38,6 +45,7 @@ impl<'a> Parser<'a> for GlobalScope {
     }
 }
 
+/// Any item that can legally live in the global scope
 #[derive(Debug)]
 enum GlobalScopeItem {
     Func(FuncItem),
@@ -70,6 +78,7 @@ impl<'a> Parser<'a> for GlobalScopeItem {
     }
 }
 
+/// The presence of the `pub` keyword
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Visibility {
     Public,
@@ -81,87 +90,36 @@ impl Default for Visibility {
 }
 
 #[derive(Default, Debug)]
-pub struct FuncItem {
-    pub vis: Visibility,
-    pub sig: FnSignature,
+pub struct Scope {
+    exprs: Vec<Expression>
 }
 
-impl<'a> Parser<'a> for FuncItem {
+impl<'a> Parser<'a> for Scope {
     type Output = Self;
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        let mut out = FuncItem::default();
-        stream.parse::<Token![Fn]>()?;
-        out.sig = stream.parse::<FnSignature>()?;
+        let mut out = Scope::default();
+        stream.parse::<Token!["{"]>()?;
+        while let Some(expr) = stream.parse::<Option<Expression>>()? {
+            out.exprs.push(expr);
+        }
+        stream.parse::<Token!["}"]>()?;
+        //out.exprs = stream.parse::<Enclosed<Token!["{"], Vec<Expression>, Token!["}"]>>()?;
         Ok(out)
     }
 }
-
-#[derive(Default, Debug)]
-pub struct FnSignature {
-    ident: Token![Ident],
-    args: Vec<FnArg>,
-    ret: Type,
-    scope: Vec<ScopeItem>
-}
-
-type FuncArgs = Enclosed<Token!["("], Option<Punctuated<FnArg, Token![","]>>, Token![")"]>;
-
-impl<'a> Parser<'a> for FnSignature {
-    type Output = Self;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        let mut out = FnSignature::default();
-        out.ident = stream.parse::<Token![Ident]>()?;
-        out.args = stream.parse::<FuncArgs>()?.unwrap_or_default();
-        stream.parse::<Token!["->"]>()?;
-        out.ret = stream.parse::<Type>()?;
-        // stream.parse::<Token!["{"]>()?;
-        // stream.parse::<Token!["}"]>()?;
-        out.scope = stream.parse::<Scope>()?.unwrap_or_default();
-        Ok(out)
-    }
-}
-
-#[derive(Default, Debug)]
-pub struct FnArg {
-    mutable: bool,
-    ident: Token![Ident],
-    ty: Type,
-}
-
-impl<'a> Parser<'a> for FnArg {
-    type Output = Self;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        let mut out = FnArg::default();
-        out.mutable = stream.parse::<Option<Token![Mut]>>()?.is_some();
-        out.ident = stream.parse::<Token![Ident]>()?;
-        stream.parse::<Token![":"]>()?;
-        out.ty = stream.parse::<Type>()?;
-        Ok(out)
-    }
-}
-
-pub type Scope = Enclosed<Token!["{"], Option<Punctuated<ScopeItem, Token![";"]>>, Token!["}"]>;
-
-#[derive(Default, Debug)]
-pub struct ScopeItem;
-impl<'a> Parser<'a> for ScopeItem {
-    type Output = Self;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        Ok(ScopeItem::default())
-    }
-}
-
 
 #[derive(Debug)]
 pub enum Type {
     Tuple(Vec<TypeSig>),
-    Standalone(TypeSig)
+    Standalone(TypeSig),
+    Unknown,
 }
 
-type Tuple =  Enclosed<Token!["("], Option<Punctuated<TypeSig, Token![","]>>, Token![")"]>;
+/// `(TypeSig, ... )`
+type Tuple = Enclosed<Token!["("], Option<Punctuated<TypeSig, Token![","]>>, Token![")"]>;
 
 impl Default for Type {
-    fn default() -> Self { Self::Tuple(Vec::new()) }
+    fn default() -> Self { Self::Unknown }
 }
 
 impl<'a> Parser<'a> for Type {
@@ -176,9 +134,14 @@ impl<'a> Parser<'a> for Type {
     }
 }
 
+/// `Ident`
+/// 
+/// `&Ident`
+/// 
+/// `&mut Ident`
 #[derive(Default, Debug)]
 pub struct TypeSig {
-    reference: Option<TypeRef>,
+    reference: Option<Mutability>,
     ident: Token![Ident],
 }
 
@@ -186,24 +149,87 @@ impl<'a> Parser<'a> for TypeSig {
     type Output = Self;
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
         let mut out = TypeSig::default();
-        out.reference = stream.parse::<Option<TypeRef>>()?;
+        out.reference = stream.parse::<Option<Reference>>()?;
         out.ident = stream.parse::<Token![Ident]>()?;
         Ok(out)
     }
 }
 
+/// The `&` or `&mut` tokens.
 #[derive(Default, Debug)]
-pub struct TypeRef {
-    mutable: bool,
-}
-
-impl<'a> Parser<'a> for TypeRef {
-    type Output = Self;
+pub struct Reference;
+impl<'a> Parser<'a> for Reference {
+    type Output = Mutability;
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        let mut out = TypeRef::default();
         stream.parse::<Token!["&"]>()?;
-        out.mutable = stream.parse::<Option<Token![Mut]>>()?.is_some();
-        return Ok(out);
+        if stream.parse::<Option<Token![Mut]>>()?.is_some() {
+            Ok(Mutability::Mutable)
+        } else {
+            Ok(Mutability::Immutable)
+        }
     }
 }
 
+/// The presence of the `mut` keyword.
+#[derive(Debug)]
+pub enum Mutability {
+    Mutable,
+    Immutable,
+}
+
+impl Default for Mutability {
+    fn default() -> Self { Self::Immutable }
+}
+
+
+#[derive(Default, Debug)]
+pub struct IdentTypeDecl;
+impl<'a> Parser<'a> for IdentTypeDecl {
+    type Output = Type;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        stream.parse::<Token![":"]>()?;
+        Ok(stream.parse::<Type>()?)
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct TypedIdent {
+    mutability: Mutability,
+    ident: Token![Ident],
+    ty: Type,
+}
+
+impl<'a> Parser<'a> for TypedIdent {
+    type Output = Self;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        let mut out = TypedIdent::default();
+        if stream.parse::<Option<Token![Mut]>>()?.is_some() {
+            out.mutability = Mutability::Mutable;
+        }
+        out.ident = stream.parse::<Token![Ident]>()?;
+        out.ty = stream.parse::<IdentTypeDecl>()?;
+        Ok(out)
+    }
+}
+ 
+#[derive(Default, Debug)]
+pub struct MaybeTypedIdent {
+    pub mutability: Mutability,
+    pub ident: Token![Ident],
+    pub ty: Type, 
+}
+
+impl<'a> Parser<'a> for MaybeTypedIdent {
+    type Output = Self;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        let mut out = Self::default();
+        if stream.parse::<Option<Token![Mut]>>()?.is_some() {
+            out.mutability = Mutability::Mutable;
+        }
+        out.ident = stream.parse::<Token![Ident]>()?;
+        if let Some(ty) = stream.parse::<Option<IdentTypeDecl>>()? {
+            out.ty = ty;
+        }
+        Ok(out)
+    }
+}

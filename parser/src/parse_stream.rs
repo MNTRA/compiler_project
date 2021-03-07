@@ -50,59 +50,9 @@ impl<'src> ParseStream<'src> {
         }
     }
 
-    // Keywords
-    pub fn parse_keyword(&mut self) -> ParseResult<()> {
-        type ST = SyntaxTokenType;
-        let token = self.get_next_token()?;
-        match token.ty {
-            ST::Punctuation(_) => {
-                self.consume();
-                return Ok(());
-            },
-            _ => return Err(ParseError::UnexpectedToken(token.ty)),
-        }
+    pub fn print_token(&mut self) {
+        println!("{:#?}", self.stream.peek(0))
     }
-
-    // Punctuation
-    pub fn parse_punctuation(&mut self) -> ParseResult<()> {
-        type ST = SyntaxTokenType;
-        let token = self.get_next_token()?;
-        match token.ty {
-            ST::Punctuation(_) => {
-                self.consume();
-                return Ok(());
-            },
-            _ => return Err(ParseError::UnexpectedToken(token.ty)),
-        }
-    }
-
-    // Literals
-    pub fn parse_literal(&mut self) -> ParseResult<()> {
-        type ST = SyntaxTokenType;
-        let token = self.get_next_token()?;
-        match token.ty {
-            ST::Control(_) => {
-                self.consume();
-                return Ok(());
-            },
-            _ => Err(ParseError::UnexpectedToken(token.ty)),
-        }
-    }
-
-    // Whitespace
-    pub fn parse_control(&mut self) -> ParseResult<()> {
-        type ST = SyntaxTokenType;
-        let token = self.get_next_token()?;
-        match token.ty {
-            ST::Control(_) => {
-                self.consume();
-                return Ok(());
-            },
-            _ => Err(ParseError::UnexpectedToken(token.ty)),
-        }
-    }
-
-
 
     pub fn consume(&mut self) {
         let _token = self.stream.next().unwrap();

@@ -190,6 +190,7 @@ create_syntax_tokenizer! {
                 self.consume();
                 loop {
                     if self.tokenize_quote(0).is_err() {
+                        // consume any tokens that fall between the Quotes
                         self.consume();
                     } else {
                         return self.create_token(ST::Literal(LT::String));
@@ -208,7 +209,6 @@ create_syntax_tokenizer! {
                         }
                     )?;
                     self.tokenize_quote(0)?;
-                    self.consume();
                     Ok(())
                 })();
                 return self.create_token(ST::Literal(LT::Char));
