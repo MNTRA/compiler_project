@@ -9,8 +9,8 @@ use crate::{
     Parser,
 };
 
-/// Combinators are Types that provide generalised parsing functionality this isnt specialied
-/// to any particular syntax.
+/// Combinators are Types that provide generalised parsing functionality this
+/// isnt specialied to any particular syntax.
 
 #[derive(Default, Debug)]
 pub struct Punctuated<T, U> {
@@ -73,7 +73,7 @@ where
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
         let lhs_out = stream.parse::<T>()?;
         stream.parse::<X>()?;
-        let rhs_out = stream.parse::<U>()?; 
+        let rhs_out = stream.parse::<U>()?;
         Ok((lhs_out, rhs_out))
     }
 }

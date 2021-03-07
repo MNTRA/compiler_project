@@ -52,6 +52,19 @@ pub enum KeywordType {
     Module,
 }
 
+impl std::fmt::Display for SyntaxTokenType {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Punctuation(p) => {
+                std::fmt::Display::fmt(p, fmt)
+            },
+            _ => {
+                fmt.write_str("Needs Display Impl")
+            }
+        }
+    }
+}
+
 // Raw Tokens ==================================================================
 
 #[derive(Debug)]
@@ -150,4 +163,20 @@ pub enum PunctuationType {
     BackQuote,
     /// \,
     Comma,
+}
+
+impl std::fmt::Display for PunctuationType {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Plus => {
+                fmt.write_str("+")
+            },
+            Self::Hyphen => {
+                fmt.write_str("-")
+            },
+            _ => {
+                fmt.write_str("Needs Display Impl")
+            }
+        }
+    }
 }

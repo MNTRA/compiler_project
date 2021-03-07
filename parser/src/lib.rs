@@ -22,8 +22,8 @@ pub fn run() {
             break;
         }
     }
-    let ast = parse_stream::SyntaxTokenParser::new(code).parse().unwrap();
-    println!("{:#?}", ast);
+    let ast = parse_stream::SyntaxTokenParser::new(code).parse();
+    // println!("{:#?}", ast);
 }
 
 use parse_stream::{ParseResult, ParseStream};

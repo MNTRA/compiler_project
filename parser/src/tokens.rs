@@ -44,7 +44,8 @@ macro_rules! create_parser {
             impl<'a> Parser<'a> for $TY {
                 type Output = Self;
                 fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-                    let token = stream.get_next_token()?;
+                    println!("[ Parser call ]: {}", $TY);
+                    let token = stream.peek(0)?;
                     if token.ty == $MATCH {
                         stream.consume();
                         return Ok(crate::tokens::$TY);
@@ -53,10 +54,14 @@ macro_rules! create_parser {
                     }
                 }
             }
+            impl std::fmt::Display for  $TY {
+                fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+                    fmt.write_str(stringify!($TY))
+                }
+            }
         }
     };
 }
-
 
 // Keywords
 create_parser!(Keyword, Let);
@@ -109,7 +114,6 @@ create_parser!(Control, Null);
 create_parser!(Whitespace);
 // gen_parser_fn!(Unknown);
 
-
 #[derive(Default, Debug)]
 pub struct Ident {
     // TODO (George): Don't store string, make it a handle to an Ident Map
@@ -118,11 +122,12 @@ pub struct Ident {
 impl<'a> Parser<'a> for Ident {
     type Output = Self;
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        let token = stream.get_next_token()?;
+        println!("[ Parser call ]: Ident");
+        let token = stream.peek(0)?;
         if token.ty == ::lexer::SyntaxTokenType::Identifier {
             stream.consume();
-            return Ok(Ident{
-                value: From::from(token.data.src)
+            return Ok(Ident {
+                value: From::from(token.data.src),
             });
         } else {
             Err(ParseError::UnexpectedToken(token.ty))
@@ -130,7 +135,114 @@ impl<'a> Parser<'a> for Ident {
     }
 }
 
+impl std::fmt::Display for Ident {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter,
+    ) -> std::fmt::Result {
+        fmt.write_str(&self.value)
+    }
+}
 
+#[derive(Debug)]
+pub struct Literal {
+    ty: ::lexer::LiteralType,
+    value: std::string::String,
+}
+
+impl<'a> Parser<'a> for Literal {
+    type Output = Self;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        type ST = ::lexer::SyntaxTokenType;
+        type LT = ::lexer::LiteralType;
+        
+        println!("[ Parser call ]: Literal");
+
+        let token = stream.peek(0)?;
+        match token.ty {
+            ST::Literal(ty @ LT::String) => {
+                stream.consume();
+                Ok(Self {
+                    ty,
+                    value: std::string::String::from(token.data.src),
+                })
+            },
+            ST::Literal(ty @ LT::Char) => {
+                stream.consume();
+                Ok(Self {
+                    ty,
+                    value: std::string::String::from(token.data.src),
+                })
+            },
+            ST::Literal(ty @ LT::Float) => {
+                stream.consume();
+                Ok(Self {
+                    ty,
+                    value: std::string::String::from(token.data.src),
+                })
+            },
+            ST::Literal(ty @ LT::Integer) => {
+                stream.consume();
+                Ok(Self {
+                    ty,
+                    value: std::string::String::from(token.data.src),
+                })
+            },
+            _ => Err(ParseError::UnexpectedToken(token.ty)),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Operator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+}
+
+impl Operator {
+    #[rustfmt::skip]
+    pub fn is_factor(&self) -> bool { 
+        match self {
+            Self::Multiply => true,
+            Self::Divide   => true,
+            Self::Add      => false,
+            Self::Subtract => false,
+        }
+    }
+}
+
+impl<'a> Parser<'a> for Operator {
+    type Output = Self;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        type ST = ::lexer::SyntaxTokenType;
+        type PT = ::lexer::PunctuationType;
+        
+        println!("[ Parser call ]: Operator");
+
+        let token = stream.peek(0)?;
+        match token.ty {
+            ST::Punctuation(PT::Plus) => {
+                stream.consume();
+                Ok(Self::Add)
+            },
+            ST::Punctuation(PT::Hyphen) => {
+                stream.consume();
+                Ok(Self::Subtract)
+            },
+            ST::Punctuation(PT::Asterisk) => {
+                stream.consume();
+                Ok(Self::Multiply)
+            },
+            ST::Punctuation(PT::Slash) => {
+                stream.consume();
+                Ok(Self::Divide)
+            },
+            _ => Err(ParseError::UnexpectedToken(token.ty)),
+        }
+    }
+}
 
 #[macro_export]
 macro_rules! Token {
@@ -145,10 +257,14 @@ macro_rules! Token {
     [Module] => { crate::tokens::Module };
 
     // Literals
+    [Literal] => { crate::tokens::Literal };
     [String ] => { crate::tokens::String  };
     [Char   ] => { crate::tokens::Char    };
     [Int    ] => { crate::tokens::Integer };
     [Float  ] => { crate::tokens::Float   };
+
+    [Operator] => [ crate::tokens::Operator ];
+
 
     ["+" ] => [ crate::tokens::Plus         ];
     ["-" ] => [ crate::tokens::Hyphen       ];
