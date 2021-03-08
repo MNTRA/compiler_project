@@ -19,6 +19,8 @@ use crate::{
     Token,
 };
 
+use super::{combinators::Punctuated, common::Tuple};
+
 #[derive(Debug)]
 pub struct LetStmt {
     mutability: Mutability,
@@ -59,41 +61,42 @@ impl<'a> Parser<'a> for LetStmtAssign {
     }
 }
 
+#[derive(Debug)]
 pub enum Expr {
     Ident(Token![Ident]),
     Literal(Token![Literal]),
-    Tuple,
+    Tuple(Vec<Expr>),
     BinOp(Box<BinOp>),
     Scope,
 }
 
-impl std::fmt::Debug for Expr {
-    #[rustfmt::skip]
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Expr::Literal(lit) => std::fmt::Debug::fmt(lit, fmt),
-            Expr::BinOp(binop) => std::fmt::Debug::fmt(binop, fmt),
-            Expr::Ident(ident) => std::fmt::Debug::fmt(ident, fmt),
-            Expr::Tuple        =>  { fmt.write_str("(,)") },
-            Expr::Scope        => { fmt.write_str("{...}") }
+// impl std::fmt::Debug for Expr {
+//     #[rustfmt::skip]
+//     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         match self {
+//             Expr::Literal(lit) => std::fmt::Debug::fmt(lit, fmt),
+//             Expr::BinOp(binop) => std::fmt::Debug::fmt(binop, fmt),
+//             Expr::Ident(ident) => std::fmt::Debug::fmt(ident, fmt),
+//             Expr::Tuple(exprs) => std::fmt::Debug::fmt(exprs, fmt),
+//             Expr::Scope        => { fmt.write_str("{...}") }
             
-        }    
-    }
-}
+//         }    
+//     }
+// }
 
 impl From<BinOp> for Expr {
     fn from(binop: BinOp) -> Self { Self::BinOp(Box::new(binop)) }
+}
+impl From<Vec<Expr>> for Expr {
+    fn from(tuple: Vec<Expr>) -> Self { Self::Tuple(tuple) }
 }
 
 impl Default for Expr {
     fn default() -> Self { Expr::Scope }
 }
 
-
-// 1 * 2 + 3
-
 impl Expr {
-    pub fn try_parse_binop<'a>(
+    pub fn try_parse_binop_expr<'a>(
         stream: &mut ParseStream<'a>,
         lhs: &mut Self,
     ) -> ParseResult<bool> {
@@ -124,7 +127,6 @@ impl Expr {
                         rhs,
                     }
                 };
-
                 // modify the lhs to be the binop expr, subsequent loops will use the
                 // modified lhs to build up the Binop expr tree
                 *lhs = Expr::from(binop);
@@ -133,13 +135,15 @@ impl Expr {
             }
         }
     }
+
+    
 }
 
 impl<'a> Parser<'a> for Expr {
     type Output = Self;
     fn parse(mut stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
         if let Some(mut expr) = stream.parse::<Option<Operand>>()? {
-            if Self::try_parse_binop(&mut stream, &mut expr)? {
+            if Self::try_parse_binop_expr(&mut stream, &mut expr)? {
                 return Ok(expr)
             }
             return Ok(expr)
@@ -158,18 +162,6 @@ impl From<Operand> for Expr {
     }
 }
 
-pub struct TupleExpr {
-
-}
-
-impl<'a> Parser<'a> for TupleExpr {
-    type Output = Expr;
-    fn parse(s: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        unexpected_token!(s);
-    }
-}
-
-
 #[derive(Debug)]
 pub struct BinOp {
     pub ty: Token![Operator],
@@ -182,26 +174,47 @@ pub enum Operand {
     Literal(Token![Literal]),
 }
 
-pub enum OperandType {
-    Parend,
-    Braced,
-    Standalone,
+impl Operand {
+    pub fn try_parse_parens<'a>(
+        stream: &mut ParseStream<'a>
+    ) -> ParseResult<Option<Expr>> {
+        if stream.parse::<Option<Token!["("]>>()?.is_some() {
+            let mut tuple = Vec::new();
+            let mut is_tuple = false;
+            loop {    
+                let expr = stream.parse::<Expr>()?;
+                if stream.parse::<Option<Token![","]>>()?.is_some() {
+                    is_tuple = true;
+                    tuple.push(expr);
+                } else if stream.parse::<Option<Token![")"]>>()?.is_some() {
+                    if is_tuple {
+                        tuple.push(expr);
+                        return Ok(Some(Expr::Tuple(tuple)))
+                    } else {
+                        return Ok(Some(expr));
+                    }
+                }
+            }
+        } else {
+            Ok(None)
+        }
+    }
 }
+
 
 impl<'a> Parser<'a> for Operand {
     type Output = Expr;
-    fn parse(s: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+    fn parse(mut s: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
 
         type Braced = Enclosed<Token!["{"], Expr, Token!["}"]>;
         if let Some(expr) = s.parse::<Option<Braced>>()? {
             return Ok(expr);
         }
-        
-        type Parened = Enclosed<Token!["("], Expr, Token![")"]>;
-        if let Some(expr) = s.parse::<Option<Parened>>()? {
+
+        if let Some(expr) = Self::try_parse_parens(&mut s)? {
             return Ok(expr);
         }
-
+        
         if let Some(literal) = s.parse::<Option<Token![Literal]>>()? {
             return Ok(Expr::from(Self::Literal(literal)));
         }

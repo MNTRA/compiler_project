@@ -1,3 +1,6 @@
 
-static mut TITLE: &str = 10 * (2 + 5);
-
+static mut TITLE: &str = {
+    (10, {
+        1 * 2 + 3
+    }, 1 + 2, 40, 50)
+};

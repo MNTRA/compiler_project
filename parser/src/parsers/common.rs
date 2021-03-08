@@ -114,7 +114,7 @@ pub enum Type {
 }
 
 /// `(TypeSig, ... )`
-type Tuple = Enclosed<Token!["("], Option<Punctuated<TypeSig, Token![","]>>, Token![")"]>;
+pub type Tuple = Enclosed<Token!["("], Option<Punctuated<TypeSig, Token![","]>>, Token![")"]>;
 
 impl Default for Type {
     fn default() -> Self { Self::Unknown }

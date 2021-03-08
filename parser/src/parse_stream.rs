@@ -158,16 +158,7 @@ impl<'src> ParseStream<'src> {
     }
 
     pub fn consume(&mut self) {
-        let token = self.stream.consume().unwrap();
-
-        match token.ty {
-            SyntaxTokenType::Whitespace | SyntaxTokenType::Control(_) => {},
-            _ => {
-                println!("Consumed: \"{}\"", token.data.src);
-            },
-        }
-
-        //self.span.set_end(token.data.span.end());
+        let _ = self.stream.consume().unwrap();
     }
 
     pub fn print_token(&mut self) {
