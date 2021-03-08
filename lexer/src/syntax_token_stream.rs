@@ -92,6 +92,7 @@ create_syntax_tokenizer! {
             "mut"       => create_keyword_token!(self, Mut       ),
             "pub"       => create_keyword_token!(self, Pub       ),
             "module"    => create_keyword_token!(self, Module    ),
+            "static"    => create_keyword_token!(self, Static    ),
             _ => {
                 self.consume();
                 WordTokenizer::tokenize_identifier(&mut *self)

@@ -18,8 +18,8 @@ impl Parse for PuncDef {
     fn parse(input: ParseStream) -> Result<Self> {
         let inner;
         let _ = bracketed!(inner in input);
-        Ok(Self{
-            ident: inner.parse::<Ident>()?
+        Ok(Self {
+            ident: inner.parse::<Ident>()?,
         })
     }
 }
@@ -42,7 +42,7 @@ impl Parse for PuncDefInput {
     }
 }
 
-pub(crate) fn define_punctuation_impl (input: TokenStream) -> TokenStream {
+pub(crate) fn define_punctuation_impl(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as PuncDefInput);
     let mut token_defs = Vec::new();
     for keyword in input.keywords {

@@ -43,8 +43,9 @@ macro_rules! create_parser {
             pub struct $TY;
             impl<'a> Parser<'a> for $TY {
                 type Output = Self;
+                #[inline(always)]
                 fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-                    println!("[ Parser call ]: {}", $TY);
+                    // println!("[ Parser call ]: {}", $TY);
                     let token = stream.peek(0)?;
                     if token.ty == $MATCH {
                         stream.consume();
@@ -69,6 +70,7 @@ create_parser!(Keyword, Fn);
 create_parser!(Keyword, Mut);
 create_parser!(Keyword, Pub);
 create_parser!(Keyword, Module);
+create_parser!(Keyword, Static);
 
 // Literals
 create_parser!(Literal, String);
@@ -122,7 +124,7 @@ pub struct Ident {
 impl<'a> Parser<'a> for Ident {
     type Output = Self;
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        println!("[ Parser call ]: Ident");
+        // println!("[ Parser call ]: Ident");
         let token = stream.peek(0)?;
         if token.ty == ::lexer::SyntaxTokenType::Identifier {
             stream.consume();
@@ -155,8 +157,8 @@ impl<'a> Parser<'a> for Literal {
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
         type ST = ::lexer::SyntaxTokenType;
         type LT = ::lexer::LiteralType;
-        
-        println!("[ Parser call ]: Literal");
+
+        // println!("[ Parser call ]: Literal");
 
         let token = stream.peek(0)?;
         match token.ty {
@@ -218,8 +220,8 @@ impl<'a> Parser<'a> for Operator {
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
         type ST = ::lexer::SyntaxTokenType;
         type PT = ::lexer::PunctuationType;
-        
-        println!("[ Parser call ]: Operator");
+
+        // println!("[ Parser call ]: Operator");
 
         let token = stream.peek(0)?;
         match token.ty {
@@ -255,6 +257,7 @@ macro_rules! Token {
     [Mut   ] => { crate::tokens::Mut    };
     [Pub   ] => { crate::tokens::Pub    };
     [Module] => { crate::tokens::Module };
+    [Static] => { crate::tokens::Static };
 
     // Literals
     [Literal] => { crate::tokens::Literal };

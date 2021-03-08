@@ -1,4 +1,4 @@
-pub mod common;
 pub mod combinators;
-pub mod function;
+pub mod common;
 pub mod expressions;
+pub mod function;

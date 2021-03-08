@@ -11,7 +11,14 @@ use lexer::{
 };
 use thiserror::Error;
 
-use crate::{Parser, Token, parsers::expressions::Expr};
+use crate::{
+    parsers::{
+        common::StaticItem,
+        expressions::Expr,
+    },
+    Parser,
+    Token,
+};
 
 pub type ParseResult<T> = Result<T, ParseError>;
 
@@ -28,7 +35,7 @@ impl<'src> SyntaxTokenParser<'src> {
 
     pub fn parse(mut self) -> ParseResult<()> {
         let mut stream = self.stream;
-        let expr = stream.parse::<Expr>()?;
+        let expr = stream.parse::<StaticItem>()?;
         stream.parse::<Token![";"]>()?;
         println!("{:#?}", expr);
         Ok(())
@@ -43,10 +50,11 @@ pub enum ParseError {
     UnexpectedToken(SyntaxTokenType),
 }
 
+pub trait ParseClosure<'a, T>: FnMut(&mut ParseStream<'a>) -> ParseResult<T> {}
 
 pub struct ParseStream<'src> {
     stream: Dynamic<SyntaxTokenStream<'src>>,
-    data : Option<Box<dyn Any>>,
+    data: Option<Box<dyn Any>>,
 }
 
 impl<'src> ParseStream<'src> {
@@ -70,23 +78,32 @@ impl<'src> ParseStream<'src> {
     /// multiple tokens that cannot be seperated by whitespace e.g `==`,
     /// `<<`, `+=`
     pub fn parse_immediate<T: Parser<'src>>(&mut self) -> ParseResult<T::Output> {
-        match T::parse(&mut *self) {
-            Ok(item) => Ok(item),
-            Err(e) => {
-                println!("{:?}", &e);
-                Err(e)
-            }
-        }
+        // match T::parse(&mut *self) {
+        //     Ok(item) => Ok(item),
+        //     Err(e) => {
+        //         println!("{:?}", &e);
+        //         Err(e)
+        //     }
+        // }
+        T::parse(&mut *self)
     }
 
-    /// Calls `Parser::parse` on `T` by first clearing any whitespace tokens in
-    /// the stream until a token is found. This is useful when parsing
-    /// syntax that doesn't care about its surrounding whitespace.
-    pub fn peek(&mut self, offset: usize) -> ParseResult<SyntaxToken<'src>> {
+    pub fn parse_call<'a, T>(
+        &mut self,
+        mut func: impl FnMut(&mut Self) -> ParseResult<T>,
+    ) -> ParseResult<T> {
+        func(self)
+    }
+
+    pub fn peek(
+        &mut self,
+        mut offset: usize,
+    ) -> ParseResult<SyntaxToken<'src>> {
         loop {
             let token = self.peek_immediate(offset)?;
             match token.ty {
                 SyntaxTokenType::Whitespace | SyntaxTokenType::Control(_) => {
+                    offset += 1;
                     continue;
                 },
                 _ => {
@@ -96,11 +113,10 @@ impl<'src> ParseStream<'src> {
         }
     }
 
-    /// Calls `Parser::parse` on `T` without clearing any whitespace tokens
-    /// before it. This is useful when parsing syntax that consists of
-    /// multiple tokens that cannot be seperated by whitespace e.g `==`,
-    /// `<<`, `+=`
-    pub fn peek_immediate(&mut self, offset: usize) -> ParseResult<SyntaxToken<'src>> {
+    pub fn peek_immediate(
+        &mut self,
+        offset: usize,
+    ) -> ParseResult<SyntaxToken<'src>> {
         match self.stream.peek(offset) {
             // TODO (George): Can we avoid the clone??
             // Does cloning this even matter??
@@ -109,23 +125,23 @@ impl<'src> ParseStream<'src> {
         }
     }
 
-
-    pub fn store_data (&mut self, val: impl Any) {
+    pub fn store_data(
+        &mut self,
+        val: impl Any,
+    ) {
         self.data = Some(Box::new(val));
     }
 
-    pub fn get_data<T: 'static> (&mut self) -> Box<T> {
-        let boxed_any = std::mem::take(&mut self.data)
-            .expect("Data was None");
+    pub fn get_data<T: 'static>(&mut self) -> Box<T> {
+        let boxed_any = std::mem::take(&mut self.data).expect("Data was None");
 
         match boxed_any.downcast::<T>() {
-            Ok(boxed_t) => { boxed_t },
+            Ok(boxed_t) => boxed_t,
             Err(_) => {
                 panic!("Unable to downcast T")
             },
         }
     }
-
 
     fn consume_whitespace(&mut self) -> ParseResult<()> {
         loop {
@@ -142,11 +158,10 @@ impl<'src> ParseStream<'src> {
     }
 
     pub fn consume(&mut self) {
-        let token = self.stream.next().unwrap();
+        let token = self.stream.consume().unwrap();
 
         match token.ty {
-            SyntaxTokenType::Whitespace | SyntaxTokenType::Control(_) => {
-            },
+            SyntaxTokenType::Whitespace | SyntaxTokenType::Control(_) => {},
             _ => {
                 println!("Consumed: \"{}\"", token.data.src);
             },
@@ -161,4 +176,16 @@ impl<'src> ParseStream<'src> {
             self.stream.peek(0).expect("This should never panic")
         )
     }
+}
+
+#[macro_export]
+macro_rules! unexpected_token {
+    () => {
+        let token = stream.peek(0)?;
+        Err(ParseError::UnexpectedToken(token.ty))
+    };
+    ($STREAM:ident) => {
+        let token = $STREAM.peek(0)?;
+        return Err(ParseError::UnexpectedToken(token.ty));
+    };
 }

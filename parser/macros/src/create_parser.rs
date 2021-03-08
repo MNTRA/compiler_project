@@ -26,13 +26,9 @@ impl Parse for StructParserInput {
     }
 }
 
+struct ParserInput {}
 
-struct ParserInput {
-    
-}
-
-
-pub fn create_parser_impl (input: TokenStream) -> TokenStream {
+pub fn create_parser_impl(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as StructParserInput);
 
     let struct_name = input.ident;

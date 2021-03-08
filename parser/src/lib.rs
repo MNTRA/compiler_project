@@ -1,7 +1,9 @@
+#![feature(type_alias_impl_trait)]
+
 pub mod ast;
-pub mod tokens;
-pub mod parsers;
 pub mod parse_stream;
+pub mod parsers;
+pub mod tokens;
 
 use lexer::{
     console_printer::CONSOLE_PRINTER,
@@ -10,10 +12,10 @@ use lexer::{
 
 pub fn run() {
     let code = include_str!("../../test_file.code");
-    
+
     let mut stream = SyntaxTokenStream::new(code);
     let mut console = CONSOLE_PRINTER.lock().unwrap();
-    
+
     loop {
         let token = stream.next();
         unsafe { console.print_syntax_token(token) }
@@ -26,9 +28,12 @@ pub fn run() {
     // println!("{:#?}", ast);
 }
 
-use parse_stream::{ParseResult, ParseStream};
+use parse_stream::{
+    ParseResult,
+    ParseStream,
+};
 
-pub trait Parser<'src>  {
+pub trait Parser<'src> {
     type Output;
     fn parse(stream: &mut ParseStream<'src>) -> ParseResult<Self::Output>;
 }

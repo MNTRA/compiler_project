@@ -1,176 +1,148 @@
-use super::combinators::Enclosed;
+use lexer::{PunctuationType, SyntaxTokenType};
+
 use crate::{
     parse_stream::{
         ParseError,
         ParseResult,
         ParseStream,
     },
+    parsers::{
+        combinators::Enclosed,
+        common::{
+            MaybeTypedIdent,
+            Mutability,
+            Type,
+        },
+    },
+    unexpected_token,
     Parser,
     Token,
 };
 
-// use std::marker::PhantomData;
-
-// use lexer::{
-//     LiteralType,
-//     SyntaxTokenType,
-// };
-
-// use super::common::Scope;
-// use crate::{
-//     parse_stream::{
-//         ParseError,
-//         ParseResult,
-//         ParseStream,
-//     },
-//     parsers::{
-//         combinators::Seperated,
-//         common::{
-//             MaybeTypedIdent,
-//             Mutability,
-//             Type,
-//         },
-//     },
-//     Parser,
-//     Token,
-// };
-
-// #[derive(Debug)]
-// pub struct LetStmt {
-//     mutability: Mutability,
-//     ident: Token![Ident],
-//     ty: Type,
-//     expr: Option<Expression>,
-// }
-
-// impl<'a> Parser<'a> for LetStmt {
-//     type Output = Self;
-//     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-//         stream.parse::<Token![Let]>()?;
-//         let mti = stream.parse::<MaybeTypedIdent>()?;
-
-//         let mutability = mti.mutability;
-//         let ident   = mti.ident;
-//         let ty      = mti.ty;
-//         let expr    = stream.parse::<Option<LetStmtAssign>>()?;
-
-//         stream.parse::<Token![";"]>()?;
-
-//         Ok(Self{
-//             mutability,
-//             ident,
-//             ty,
-//             expr,
-//         })
-//     }
-// }
-
-// /*
-//     let x;
-//     let x = 10;
-
-//     let mut c: i32;
-
-//     {lhs} [op] {rhs}
-
-//     let x = 2;
-//     1     + 2
-
-// */
-// #[derive(Default, Debug)]
-// pub struct LetStmtAssign;
-// impl<'a> Parser<'a> for LetStmtAssign {
-//     type Output = Expression;
-//     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-//         stream.parse::<Token!["="]>()?;
-//         stream.parse::<Expression>()
-//     }
-// }
-
-// #[derive(Debug)]
-// pub enum Expression {
-//     Scope(Scope),
-//     //LetStmt(Box<LetStmt>),
-//     // Literal(LiteralExpr),
-//     BinOp(Box<BinOpExpr>),
-// }
-
-// impl<'a> Parser<'a> for Expression {
-//     type Output = Self;
-//     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-//         // if let Some(scope) = stream.parse::<Option<Scope>>()? {
-//         //     return Ok(Self::Scope(scope));
-//         // }
-//         if let Some(bin_op) = stream.parse::<Option<BinOpExpr>>()? {
-//             return Ok(Self::BinOp(Box::new(bin_op)));
-//         }
-//         return Ok(Self::Literal(
-//             stream.parse::<Token![Literal]>()?
-//         ));
-//     }
-// }
-
-// #[derive(Debug)]
-// pub enum BinOpExpr {
-//     Add(AddOp)
-// }
-
-// impl<'a> Parser<'a> for BinOpExpr {
-//     type Output = Self;
-//     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-//         // if let Some(lit) = stream.parse::<Option<LiteralExpr>>()? {
-//         //     return Ok(Self::Literal(lit));
-//         // }
-//         if let Some(assign) = stream.parse::<Option<AddOp>>()? {
-//             return Ok(BinOpExpr::Add(assign))
-//         }
-
-//         let token = stream.get_next_token()?;
-//         Err(ParseError::UnexpectedToken(token.ty))
-//     }
-// }
-
-// #[derive(Debug)]
-// pub struct AddOp {
-//     rhs: LiteralExpr,
-//     lhs: LiteralExpr,
-// }
-// impl<'a> Parser<'a> for AddOp {
-//     type Output = Self;
-//     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-//         let lhs = stream.parse::<LiteralExpr>()?;
-//         stream.parse::<Token!["+"]>()?;
-//         let rhs = stream.parse::<LiteralExpr>()?;
-//         Ok(Self { lhs, rhs })
-//     }
-// }
-
 #[derive(Debug)]
+pub struct LetStmt {
+    mutability: Mutability,
+    ident: Token![Ident],
+    ty: Type,
+    expr: Option<Expr>,
+}
+
+impl<'a> Parser<'a> for LetStmt {
+    type Output = Self;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        stream.parse::<Token![Let]>()?;
+        let mti = stream.parse::<MaybeTypedIdent>()?;
+
+        let mutability = mti.mutability;
+        let ident = mti.ident;
+        let ty = mti.ty;
+        let expr = stream.parse::<Option<LetStmtAssign>>()?;
+
+        stream.parse::<Token![";"]>()?;
+
+        Ok(Self {
+            mutability,
+            ident,
+            ty,
+            expr,
+        })
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct LetStmtAssign;
+impl<'a> Parser<'a> for LetStmtAssign {
+    type Output = Expr;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        stream.parse::<Token!["="]>()?;
+        stream.parse::<Expr>()
+    }
+}
+
 pub enum Expr {
+    Ident(Token![Ident]),
     Literal(Token![Literal]),
+    Tuple,
     BinOp(Box<BinOp>),
     Scope,
+}
+
+impl std::fmt::Debug for Expr {
+    #[rustfmt::skip]
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Expr::Literal(lit) => std::fmt::Debug::fmt(lit, fmt),
+            Expr::BinOp(binop) => std::fmt::Debug::fmt(binop, fmt),
+            Expr::Ident(ident) => std::fmt::Debug::fmt(ident, fmt),
+            Expr::Tuple        =>  { fmt.write_str("(,)") },
+            Expr::Scope        => { fmt.write_str("{...}") }
+            
+        }    
+    }
+}
+
+impl From<BinOp> for Expr {
+    fn from(binop: BinOp) -> Self { Self::BinOp(Box::new(binop)) }
 }
 
 impl Default for Expr {
     fn default() -> Self { Expr::Scope }
 }
 
+
+// 1 * 2 + 3
+
+impl Expr {
+    pub fn try_parse_binop<'a>(
+        stream: &mut ParseStream<'a>,
+        lhs: &mut Self,
+    ) -> ParseResult<bool> {
+        // is_binop is used by the caller to determine whether this function
+        // successfully transformed the lhs Expr into a BinOp expr
+        let mut is_binop = false;
+        loop {
+            if let Some(operator) = stream.parse::<Option<Token![Operator]>>()? {
+                is_binop = true;
+
+                // Operator precidence requires factor nodes (*, /) are children of
+                // term nodes, this ensures the factors are evaluted before the
+                // term nodes are.
+                let binop = if operator.is_factor() {
+                    // Factor binops should only evalute with their immediate neighbor
+                    let rhs = stream.parse::<Operand>()?;
+                    BinOp {
+                        ty: operator,
+                        lhs: std::mem::take(lhs),
+                        rhs: Expr::from(rhs),
+                    }
+                } else {
+                    // Term binops should evaluate with the rest of the expression
+                    let rhs = stream.parse::<Expr>()?;
+                    BinOp {
+                        ty: operator,
+                        lhs: std::mem::take(lhs),
+                        rhs,
+                    }
+                };
+
+                // modify the lhs to be the binop expr, subsequent loops will use the
+                // modified lhs to build up the Binop expr tree
+                *lhs = Expr::from(binop);
+            } else {
+                return Ok(is_binop);
+            }
+        }
+    }
+}
+
 impl<'a> Parser<'a> for Expr {
     type Output = Self;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        if let Some(operand) = stream.parse::<Option<Operand>>()? {
-            stream.store_data(operand);
-            loop {
-                let out = stream.parse::<Option<BinOp>>()?;
-                match out {
-                    Some(_) => continue,
-                    None => break,
-                }
+    fn parse(mut stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        if let Some(mut expr) = stream.parse::<Option<Operand>>()? {
+            if Self::try_parse_binop(&mut stream, &mut expr)? {
+                return Ok(expr)
             }
-            // We must! ensure the data stored is a valid Expr
-            let data: Expr = *stream.get_data();
-            Ok(data)
+            return Ok(expr)
         } else {
             return Ok(Self::Scope);
         }
@@ -181,12 +153,22 @@ impl From<Operand> for Expr {
     fn from(operand: Operand) -> Self {
         match operand {
             Operand::Literal(literal) => Self::Literal(literal),
+            Operand::Ident(ident) => Self::Ident(ident),
         }
     }
 }
-impl From<BinOp> for Expr {
-    fn from(binop: BinOp) -> Self { Self::BinOp(Box::new(binop)) }
+
+pub struct TupleExpr {
+
 }
+
+impl<'a> Parser<'a> for TupleExpr {
+    type Output = Expr;
+    fn parse(s: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        unexpected_token!(s);
+    }
+}
+
 
 #[derive(Debug)]
 pub struct BinOp {
@@ -195,60 +177,40 @@ pub struct BinOp {
     pub rhs: Expr,
 }
 
-impl<'a> Parser<'a> for BinOp {
-    type Output = ();
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        // When we get here the caller (Expr::parse) will have already stored
-        // a valid Expr in the stream data or it would have already returned
-        // with an error.
-        //
-        // If the operator is a factor (*, /) we parse the next operand and store
-        // it as an Expr in the stream data.
-        // If it isn't a factor we create the binop using the stored data as the
-        // lhs and parse the rhs as an Expr.
-
-        let operator = stream.parse::<Token![Operator]>()?;
-        let binop = if operator.is_factor() {
-            let rhs = stream.parse::<Operand>()?;
-            let lhs: Expr = *stream.get_data();
-            Self {
-                ty: operator,
-                lhs,
-                rhs: Expr::from(rhs),
-            }
-        } else {
-            let lhs: Expr = *stream.get_data();
-            let rhs = stream.parse::<Expr>()?;
-            Self {
-                ty: operator,
-                lhs,
-                rhs,
-            }
-        };
-
-        // We must ensure the data is Expr before returning to the Expr parse fn
-        stream.store_data(Expr::from(binop));
-        Ok(())
-    }
+pub enum Operand {
+    Ident(Token![Ident]),
+    Literal(Token![Literal]),
 }
 
-pub enum Operand {
-    Literal(Token![Literal]),
+pub enum OperandType {
+    Parend,
+    Braced,
+    Standalone,
 }
 
 impl<'a> Parser<'a> for Operand {
     type Output = Expr;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+    fn parse(s: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+
+        type Braced = Enclosed<Token!["{"], Expr, Token!["}"]>;
+        if let Some(expr) = s.parse::<Option<Braced>>()? {
+            return Ok(expr);
+        }
+        
         type Parened = Enclosed<Token!["("], Expr, Token![")"]>;
-        if let Some(expr) = stream.parse::<Option<Parened>>()? {
+        if let Some(expr) = s.parse::<Option<Parened>>()? {
             return Ok(expr);
         }
 
-        if let Some(literal) = stream.parse::<Option<Token![Literal]>>()? {
+        if let Some(literal) = s.parse::<Option<Token![Literal]>>()? {
             return Ok(Expr::from(Self::Literal(literal)));
         }
 
-        let token = stream.peek(0)?;
-        Err(ParseError::UnexpectedToken(token.ty))
+        if let Some(ident) = s.parse::<Option<Token![Ident]>>()? {
+            return Ok(Expr::from(Self::Ident(ident)));
+        }
+
+        unexpected_token!(s);
     }
 }
+

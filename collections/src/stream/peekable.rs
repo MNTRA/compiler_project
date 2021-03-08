@@ -13,8 +13,8 @@ pub type PeekableResult<T> = std::result::Result<T, DynamicError>;
 /// Similar in functionality to `std::iter::Peekable` but allows
 /// users to peek any number of items into the stream.
 ///
-/// Internally `Dynamic` holds an unbounded ring buffer that stores items seen by
-/// the underlying iterator, returning items from the buffer when consumed.
+/// Internally `Dynamic` holds an unbounded ring buffer that stores items seen
+/// by the underlying iterator, returning items from the buffer when consumed.
 pub struct Dynamic<T: Iterator> {
     stream: T,
     buffer: VecDeque<T::Item>,

@@ -24,7 +24,9 @@ impl<I: Iterator> Cursor<I> {
         &mut self,
         offset: usize,
     ) -> CursorResult<&I::Item> {
-        self.stream.peek(offset).map_err(|_| CursorError::EndOfStream)
+        self.stream
+            .peek(offset)
+            .map_err(|_| CursorError::EndOfStream)
     }
 
     pub fn next(&mut self) -> CursorResult<I::Item> {

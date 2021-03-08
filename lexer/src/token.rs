@@ -50,17 +50,17 @@ pub enum KeywordType {
     Mut,
     Pub,
     Module,
+    Static,
 }
 
 impl std::fmt::Display for SyntaxTokenType {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter,
+    ) -> std::fmt::Result {
         match self {
-            Self::Punctuation(p) => {
-                std::fmt::Display::fmt(p, fmt)
-            },
-            _ => {
-                fmt.write_str("Needs Display Impl")
-            }
+            Self::Punctuation(p) => std::fmt::Display::fmt(p, fmt),
+            _ => fmt.write_str("Needs Display Impl"),
         }
     }
 }
@@ -166,17 +166,14 @@ pub enum PunctuationType {
 }
 
 impl std::fmt::Display for PunctuationType {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter,
+    ) -> std::fmt::Result {
         match self {
-            Self::Plus => {
-                fmt.write_str("+")
-            },
-            Self::Hyphen => {
-                fmt.write_str("-")
-            },
-            _ => {
-                fmt.write_str("Needs Display Impl")
-            }
+            Self::Plus => fmt.write_str("+"),
+            Self::Hyphen => fmt.write_str("-"),
+            _ => fmt.write_str("Needs Display Impl"),
         }
     }
 }
