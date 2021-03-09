@@ -15,7 +15,6 @@ use lazy_static::lazy_static;
 
 use crate::token::{
     ControlType,
-    KeywordType,
     LiteralType,
     SyntaxToken,
     SyntaxTokenType,

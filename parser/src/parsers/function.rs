@@ -9,7 +9,7 @@ use crate::{
             Punctuated,
         },
         common::{
-            Scope,
+            ExprScope,
             Type,
             TypedIdent,
             Visibility,
@@ -23,6 +23,7 @@ use crate::{
 pub struct FuncItem {
     pub vis: Visibility,
     pub sig: FnSignature,
+    pub scope: ExprScope,
 }
 
 impl<'a> Parser<'a> for FuncItem {
@@ -31,6 +32,7 @@ impl<'a> Parser<'a> for FuncItem {
         let mut out = FuncItem::default();
         stream.parse::<Token![Fn]>()?;
         out.sig = stream.parse::<FnSignature>()?;
+        out.scope = stream.parse::<ExprScope>()?;
         Ok(out)
     }
 }
@@ -40,7 +42,6 @@ pub struct FnSignature {
     ident: Token![Ident],
     args: Vec<TypedIdent>,
     ret: Type,
-    scope: Scope,
 }
 
 type FuncArgs = Enclosed<Token!["("], Option<Punctuated<TypedIdent, Token![","]>>, Token![")"]>;
@@ -54,7 +55,6 @@ impl<'a> Parser<'a> for FnSignature {
         if stream.parse::<Option<Token!["->"]>>()?.is_some() {
             out.ret = stream.parse::<Type>()?;
         }
-        out.scope = stream.parse::<Scope>()?;
         Ok(out)
     }
 }

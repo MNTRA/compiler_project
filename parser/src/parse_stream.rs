@@ -1,9 +1,6 @@
 use std::any::Any;
 
-use collections::stream::{
-    Dynamic,
-    DynamicError,
-};
+use collections::stream::Dynamic;
 use lexer::{
     SyntaxToken,
     SyntaxTokenStream,
@@ -12,12 +9,9 @@ use lexer::{
 use thiserror::Error;
 
 use crate::{
-    parsers::{
-        common::StaticItem,
-        expressions::Expr,
-    },
+    ast::Ast,
+    parsers::common::GlobalScope,
     Parser,
-    Token,
 };
 
 pub type ParseResult<T> = Result<T, ParseError>;
@@ -33,12 +27,9 @@ impl<'src> SyntaxTokenParser<'src> {
         }
     }
 
-    pub fn parse(mut self) -> ParseResult<()> {
-        let mut stream = self.stream;
-        let expr = stream.parse::<StaticItem>()?;
-        stream.parse::<Token![";"]>()?;
-        println!("{:#?}", expr);
-        Ok(())
+    pub fn parse(mut self) -> ParseResult<Ast> {
+        let scope = self.stream.parse::<GlobalScope>()?;
+        Ok(Ast::from(scope))
     }
 }
 
@@ -157,9 +148,7 @@ impl<'src> ParseStream<'src> {
         }
     }
 
-    pub fn consume(&mut self) {
-        let _ = self.stream.consume().unwrap();
-    }
+    pub fn consume(&mut self) { let _ = self.stream.consume().unwrap(); }
 
     pub fn print_token(&mut self) {
         println!(

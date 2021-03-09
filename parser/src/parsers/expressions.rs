@@ -1,5 +1,3 @@
-use lexer::{PunctuationType, SyntaxTokenType};
-
 use crate::{
     parse_stream::{
         ParseError,
@@ -18,8 +16,6 @@ use crate::{
     Parser,
     Token,
 };
-
-use super::{combinators::Punctuated, common::Tuple};
 
 #[derive(Debug)]
 pub struct LetStmt {
@@ -67,22 +63,8 @@ pub enum Expr {
     Literal(Token![Literal]),
     Tuple(Vec<Expr>),
     BinOp(Box<BinOp>),
-    Scope,
+    Empty,
 }
-
-// impl std::fmt::Debug for Expr {
-//     #[rustfmt::skip]
-//     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         match self {
-//             Expr::Literal(lit) => std::fmt::Debug::fmt(lit, fmt),
-//             Expr::BinOp(binop) => std::fmt::Debug::fmt(binop, fmt),
-//             Expr::Ident(ident) => std::fmt::Debug::fmt(ident, fmt),
-//             Expr::Tuple(exprs) => std::fmt::Debug::fmt(exprs, fmt),
-//             Expr::Scope        => { fmt.write_str("{...}") }
-            
-//         }    
-//     }
-// }
 
 impl From<BinOp> for Expr {
     fn from(binop: BinOp) -> Self { Self::BinOp(Box::new(binop)) }
@@ -92,7 +74,7 @@ impl From<Vec<Expr>> for Expr {
 }
 
 impl Default for Expr {
-    fn default() -> Self { Expr::Scope }
+    fn default() -> Self { Expr::Empty }
 }
 
 impl Expr {
@@ -135,8 +117,6 @@ impl Expr {
             }
         }
     }
-
-    
 }
 
 impl<'a> Parser<'a> for Expr {
@@ -144,11 +124,11 @@ impl<'a> Parser<'a> for Expr {
     fn parse(mut stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
         if let Some(mut expr) = stream.parse::<Option<Operand>>()? {
             if Self::try_parse_binop_expr(&mut stream, &mut expr)? {
-                return Ok(expr)
+                return Ok(expr);
             }
-            return Ok(expr)
+            return Ok(expr);
         } else {
-            return Ok(Self::Scope);
+            return Ok(Self::Empty);
         }
     }
 }
@@ -159,6 +139,16 @@ impl From<Operand> for Expr {
             Operand::Literal(literal) => Self::Literal(literal),
             Operand::Ident(ident) => Self::Ident(ident),
         }
+    }
+}
+
+pub struct ExprItem;
+impl<'a> Parser<'a> for ExprItem {
+    type Output = Expr;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        let out = stream.parse::<Expr>()?;
+        stream.parse::<Token![";"]>()?;
+        Ok(out)
     }
 }
 
@@ -175,13 +165,11 @@ pub enum Operand {
 }
 
 impl Operand {
-    pub fn try_parse_parens<'a>(
-        stream: &mut ParseStream<'a>
-    ) -> ParseResult<Option<Expr>> {
+    pub fn try_parse_parens<'a>(stream: &mut ParseStream<'a>) -> ParseResult<Option<Expr>> {
         if stream.parse::<Option<Token!["("]>>()?.is_some() {
             let mut tuple = Vec::new();
             let mut is_tuple = false;
-            loop {    
+            loop {
                 let expr = stream.parse::<Expr>()?;
                 if stream.parse::<Option<Token![","]>>()?.is_some() {
                     is_tuple = true;
@@ -189,7 +177,7 @@ impl Operand {
                 } else if stream.parse::<Option<Token![")"]>>()?.is_some() {
                     if is_tuple {
                         tuple.push(expr);
-                        return Ok(Some(Expr::Tuple(tuple)))
+                        return Ok(Some(Expr::Tuple(tuple)));
                     } else {
                         return Ok(Some(expr));
                     }
@@ -201,11 +189,9 @@ impl Operand {
     }
 }
 
-
 impl<'a> Parser<'a> for Operand {
     type Output = Expr;
     fn parse(mut s: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-
         type Braced = Enclosed<Token!["{"], Expr, Token!["}"]>;
         if let Some(expr) = s.parse::<Option<Braced>>()? {
             return Ok(expr);
@@ -214,7 +200,7 @@ impl<'a> Parser<'a> for Operand {
         if let Some(expr) = Self::try_parse_parens(&mut s)? {
             return Ok(expr);
         }
-        
+
         if let Some(literal) = s.parse::<Option<Token![Literal]>>()? {
             return Ok(Expr::from(Self::Literal(literal)));
         }
@@ -226,4 +212,3 @@ impl<'a> Parser<'a> for Operand {
         unexpected_token!(s);
     }
 }
-

@@ -1,80 +1,154 @@
-use super::expressions::Expr;
 use crate::{
     parse_stream::{
         ParseError,
         ParseResult,
         ParseStream,
     },
-    parsers::combinators::{
-        Enclosed,
-        Punctuated,
+    parsers::{
+        combinators::{
+            Enclosed,
+            Punctuated,
+        },
+        expressions::{
+            Expr,
+            ExprItem,
+        },
+        function::FuncItem,
     },
     unexpected_token,
     Parser,
     Token,
 };
 
-// use super::expressions::Expression;
+/// The outermost scope of the translation unit.
+#[derive(Debug, Default)]
+pub struct GlobalScope {
+    functions: Vec<FuncItem>,
+    statics: Vec<StaticItem>,
+}
 
-// /// The outermost scope of the translation unit.
-// #[derive(Debug, Default)]
-// pub struct GlobalScope {
-//     functions: Vec<FuncItem>,
-// }
+impl<'a> Parser<'a> for GlobalScope {
+    type Output = Self;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        let mut out = GlobalScope::default();
+        loop {
+            match stream.parse::<GlobalScopeItem>() {
+                Ok(gci) => match gci {
+                    GlobalScopeItem::Func(func) => out.functions.push(func),
+                    GlobalScopeItem::Static(static_item) => out.statics.push(static_item),
+                },
+                Err(err) => match err {
+                    ParseError::UnexpectedToken(_) => break,
+                    ParseError::EndOfTokenStream => break,
+                },
+            }
+        }
+        Ok(out)
+    }
+}
 
-// impl<'a> Parser<'a> for GlobalScope {
-//     type Output = Self;
-//     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-//         let mut out = GlobalScope::default();
-//         loop {
-//             match stream.parse::<GlobalScopeItem>() {
-//                 Ok(gci) => match gci {
-//                     GlobalScopeItem::Func(func) => out.functions.push(func),
-//                 },
-//                 Err(err) => {
-//                     match err {
-//                         ParseError::UnexpectedToken(_) => break, //return
-// Err(err),                         ParseError::EndOfTokenStream => break,
-//                     }
-//                 },
-//             }
-//         }
-//         Ok(out)
-//     }
-// }
+/// Any item that can legally live in the global scope
+#[derive(Debug)]
+enum GlobalScopeItem {
+    Func(FuncItem),
+    Static(StaticItem),
+}
 
-// /// Any item that can legally live in the global scope
-// #[derive(Debug)]
-// enum GlobalScopeItem {
-//     Func(FuncItem),
-// }
+impl GlobalScopeItem {
+    fn parse_visibility(stream: &mut ParseStream<'_>) -> ParseResult<Visibility> {
+        match stream.parse::<Token![Pub]>() {
+            Ok(_) => return Ok(Visibility::Public),
+            Err(err) => match err {
+                ParseError::UnexpectedToken(_) => Ok(Visibility::Private),
+                ParseError::EndOfTokenStream => Err(err),
+            },
+        }
+    }
+}
 
-// impl GlobalScopeItem {
-//     fn parse_visibility(stream: &mut ParseStream<'_>) ->
-// ParseResult<Visibility> {         match stream.parse::<Token![Pub]>() {
-//             Ok(_) => return Ok(Visibility::Public),
-//             Err(err) => match err {
-//                 ParseError::UnexpectedToken(_) => Ok(Visibility::Private),
-//                 ParseError::EndOfTokenStream => Err(err),
-//             },
-//         }
-//     }
-// }
+impl<'a> Parser<'a> for GlobalScopeItem {
+    type Output = Self;
+    fn parse(mut stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        //  Check for the `pub` keyword
+        let vis = Self::parse_visibility(&mut stream)?;
+        let mut parse_main = || -> ParseResult<Self::Output> {
+            if let Some(mut func_item) = stream.parse::<Option<FuncItem>>()? {
+                func_item.vis = vis;
+                return Ok(Self::Func(func_item));
+            };
+            if let Some(mut static_item) = stream.parse::<Option<StaticItem>>()? {
+                static_item.vis = vis;
+                return Ok(Self::Static(static_item));
+            };
+            unexpected_token!(stream);
+        };
 
-// impl<'a> Parser<'a> for GlobalScopeItem {
-//     type Output = Self;
-//     fn parse(mut stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-//         //  Check for the `pub` keyword
-//         let vis = Self::parse_visibility(&mut stream)?;
-//         match stream.parse::<FuncItem>() {
-//             Ok(mut func) => {
-//                 func.vis = vis;
-//                 Ok(GlobalScopeItem::Func(func))
-//             },
-//             Err(e) => Err(e),
-//         }
-//     }
-// }
+        match parse_main() {
+            Ok(out) => Ok(out),
+            Err(e) => {
+                println!("{:#?}", e);
+                Err(e)
+            },
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ExprScope {
+    items: Vec<ScopeItem>,
+    expr: Expr,
+}
+
+impl ExprScope {
+    pub fn try_parse_parens<'a>(stream: &mut ParseStream<'a>) -> ParseResult<Option<Expr>> {
+        todo!()
+    }
+}
+
+impl<'a> Parser<'a> for ExprScope {
+    type Output = Self;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        let mut out = ExprScope::default();
+        stream.parse::<Option<Token!["{"]>>()?;
+        loop {
+            if let Some(item) = stream.parse::<Option<ScopeItem>>()? {
+                out.items.push(item)
+            } else {
+                break;
+            }
+        }
+        out.expr = stream.parse::<Expr>()?;
+        stream.parse::<Option<Token!["}"]>>()?;
+        Ok(out)
+    }
+}
+
+#[derive(Debug)]
+enum ScopeItem {
+    Func(FuncItem),
+    Static(StaticItem),
+    Let(LetItem),
+    Expr(Expr),
+}
+
+impl<'a> Parser<'a> for ScopeItem {
+    type Output = Self;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        if let Some(item) = stream.parse::<Option<FuncItem>>()? {
+            return Ok(Self::Func(item));
+        };
+        if let Some(item) = stream.parse::<Option<StaticItem>>()? {
+            return Ok(Self::Static(item));
+        };
+        if let Some(item) = stream.parse::<Option<LetItem>>()? {
+            return Ok(Self::Let(item));
+        };
+        if let Some(item) = stream.parse::<Option<ExprItem>>()? {
+            return Ok(Self::Expr(item));
+        };
+        unexpected_token!(stream);
+    }
+}
 
 /// The presence of the `pub` keyword
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -86,25 +160,6 @@ pub enum Visibility {
 impl Default for Visibility {
     fn default() -> Self { Self::Private }
 }
-
-// #[derive(Default, Debug)]
-// pub struct Scope {
-//     exprs: Vec<Expression>
-// }
-
-// impl<'a> Parser<'a> for Scope {
-//     type Output = Self;
-//     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-//         let mut out = Scope::default();
-//         stream.parse::<Token!["{"]>()?;
-//         while let Some(expr) = stream.parse::<Option<Expression>>()? {
-//             out.exprs.push(expr);
-//         }
-//         stream.parse::<Token!["}"]>()?;
-//         //out.exprs = stream.parse::<Enclosed<Token!["{"], Vec<Expression>,
-// Token!["}"]>>()?;         Ok(out)
-//     }
-// }
 
 #[derive(Debug)]
 pub enum Type {
@@ -232,32 +287,40 @@ impl<'a> Parser<'a> for MaybeTypedIdent {
 }
 
 #[derive(Default, Debug)]
-pub struct Scope {
-    // static_items: Vec<StaticItem>,
-// functions: Vec<Func>,
-}
-
-impl<'a> Parser<'a> for Scope {
-    type Output = Scope;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        unexpected_token!(stream);
-    }
-}
-
-#[derive(Default, Debug)]
 pub struct StaticItem {
+    vis: Visibility,
     sig: TypedIdent,
     value: Expr,
 }
 
 impl<'a> Parser<'a> for StaticItem {
-    type Output = StaticItem;
+    type Output = Self;
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
         let mut out = Self::default();
         stream.parse::<Token![Static]>()?;
         out.sig = stream.parse::<TypedIdent>()?;
         stream.parse::<Token!["="]>()?;
         out.value = stream.parse::<Expr>()?;
+        stream.parse::<Token![";"]>()?;
+        Ok(out)
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct LetItem {
+    sig: MaybeTypedIdent,
+    value: Expr,
+}
+
+impl<'a> Parser<'a> for LetItem {
+    type Output = Self;
+    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+        let mut out = Self::default();
+        stream.parse::<Token![Let]>()?;
+        out.sig = stream.parse::<MaybeTypedIdent>()?;
+        stream.parse::<Token!["="]>()?;
+        out.value = stream.parse::<Expr>()?;
+        stream.parse::<Token![";"]>()?;
         Ok(out)
     }
 }
