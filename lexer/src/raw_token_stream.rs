@@ -1,53 +1,52 @@
-use std::str::Chars;
+use std::{str::Chars, sync::Arc};
 
+use diagnostics::span::Span;
 use macros::create_raw_tokenizer;
 
 use crate::{
     cursor::Cursor,
-    span::Span,
     token::{
         ControlType,
-        PunctuationType,
+        PunctuationKind,
         RawToken,
-        RawTokenData,
-        RawTokenType,
+        RawTokenKind,
     },
 };
 
 // Raw Tokens =================================================================
 
 pub struct RawTokenStream<'a> {
-    source: &'a str,
+    // TODO: Remove the Cursor and Dynamic and replace with a simple non allocating,
+    // peekable
     cursor: Cursor<Chars<'a>>,
 }
 
 impl<'a> RawTokenStream<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
-            source,
             cursor: Cursor::new(source.chars()),
         }
     }
 }
 
 impl<'a> Iterator for RawTokenStream<'a> {
-    type Item = RawToken<'a>;
+    type Item = RawToken;
 
     #[rustfmt::skip]
-    fn next(&mut self) -> Option<RawToken<'a>> {
+    fn next(&mut self) -> Option<RawToken> {
         if let Ok(c) = self.cursor.peek(0) {
             let token = if is_whitespace(c) {
-                WSTokenizer::new(&self.source, &mut self.cursor).tokenize()
+                WSTokenizer::new(&mut self.cursor).tokenize()
             } else if is_control(c) {
-                CCTokenizer::new(&self.source, &mut self.cursor).tokenize()
+                CCTokenizer::new(&mut self.cursor).tokenize()
             } else if is_punctuation(c) {
-                PuncTokenizer::new(&self.source, &mut self.cursor).tokenize()
+                PuncTokenizer::new(&mut self.cursor).tokenize()
             } else if is_alphabetic(c) {
-                WordTokenizer::new(&self.source, &mut self.cursor).tokenize()
+                WordTokenizer::new(&mut self.cursor).tokenize()
             } else if is_numeric(c) {
-                NumTokenizer::new(&self.source, &mut self.cursor).tokenize()
+                NumTokenizer::new(&mut self.cursor).tokenize()
             } else {
-                UKnTokenizer::new(&self.source, &mut self.cursor).tokenize()
+                UKnTokenizer::new(&mut self.cursor).tokenize()
             };
             return Some(token);
         } else {
@@ -58,7 +57,7 @@ impl<'a> Iterator for RawTokenStream<'a> {
 
 create_raw_tokenizer! {
     WordTokenizer,
-    fn tokenize(&mut self) -> RawToken<'b> {
+    fn tokenize(&mut self) -> RawToken {
         self.consume();
         loop {
             if let Ok(c) = self.cursor.peek(0) {
@@ -71,13 +70,13 @@ create_raw_tokenizer! {
                 break;
             }
         }
-        return self.create_token(RawTokenType::Word);
+        return self.create_token(RawTokenKind::Word);
     }
 }
 
 create_raw_tokenizer! {
     NumTokenizer,
-    fn tokenize(&mut self) -> RawToken<'b> {
+    fn tokenize(&mut self) -> RawToken {
         self.consume();
         loop {
             if let Ok(c) = self.cursor.peek(0) {
@@ -93,20 +92,20 @@ create_raw_tokenizer! {
                 break;
             }
         }
-        return self.create_token(RawTokenType::Number);
+        return self.create_token(RawTokenKind::Number);
     }
 }
 
 macro_rules! punctuation_token {
     ($SELF:ident, $IDENT:ident) => {{
         $SELF.consume();
-        return $SELF.create_token(RawTokenType::Punctuation(PunctuationType::$IDENT));
+        return $SELF.create_token(RawTokenKind::Punctuation(PunctuationKind::$IDENT));
     }};
 }
 
 create_raw_tokenizer! {
     PuncTokenizer,
-    fn tokenize(&mut self) -> RawToken<'b> {
+    fn tokenize(&mut self) -> RawToken {
         match self.peek(0) {
             '+' => { punctuation_token!(self, Plus         )},
             '-' => { punctuation_token!(self, Hyphen       )},
@@ -146,7 +145,7 @@ create_raw_tokenizer! {
 
 create_raw_tokenizer! {
     CCTokenizer,
-    fn tokenize(&mut self) -> RawToken<'b> {
+    fn tokenize(&mut self) -> RawToken {
         match self.peek(0) {
             '\r' => {
                 self.consume();
@@ -154,12 +153,12 @@ create_raw_tokenizer! {
                     '\n' => {
                         self.consume();
                         return self.create_token(
-                            RawTokenType::Control(ControlType::NewLine)
+                            RawTokenKind::Control(ControlType::NewLine)
                         );
                     },
                     _ => {
                         return self.create_token(
-                            RawTokenType::Control(ControlType::NewLine)
+                            RawTokenKind::Control(ControlType::NewLine)
                         );
                     }
                 }
@@ -167,19 +166,19 @@ create_raw_tokenizer! {
             '\n' => {
                     self.consume();
                     return self.create_token(
-                        RawTokenType::Control(ControlType::NewLine)
+                        RawTokenKind::Control(ControlType::NewLine)
                     );
                 },
             '\0' => {
                     self.consume();
                     return self.create_token(
-                        RawTokenType::Control(ControlType::Null)
+                        RawTokenKind::Control(ControlType::Null)
                     );
             }
             '\t' => {
                     self.consume();
                     return self.create_token(
-                        RawTokenType::Control(ControlType::Tab)
+                        RawTokenKind::Control(ControlType::Tab)
                     );
                 }
             c => { println!(" ur: {}", c);   unreachable!()},
@@ -189,7 +188,7 @@ create_raw_tokenizer! {
 
 create_raw_tokenizer! {
     WSTokenizer,
-    fn tokenize(&mut self) -> RawToken<'b> {
+    fn tokenize(&mut self) -> RawToken {
         self.consume();
         loop {
             if let Ok(c) = self.cursor.peek(0) {
@@ -205,15 +204,15 @@ create_raw_tokenizer! {
                 break;
             }
         }
-        return self.create_token(RawTokenType::Whitespace);
+        return self.create_token(RawTokenKind::Whitespace);
     }
 }
 
 create_raw_tokenizer! {
     UKnTokenizer,
-    fn tokenize(&mut self) -> RawToken<'b> {
+    fn tokenize(&mut self) -> RawToken {
         self.consume();
-        self.create_token(RawTokenType::Unknown)
+        self.create_token(RawTokenKind::Unknown)
     }
 }
 
@@ -243,7 +242,6 @@ fn is_numeric(c: &char) -> bool {
 }
 
 struct RawTokenizer<'a, 'b> {
-    source: &'b str,
     length: usize,
     offset: usize,
     cursor: &'a mut Cursor<Chars<'b>>,
@@ -252,8 +250,8 @@ struct RawTokenizer<'a, 'b> {
 impl<'a, 'b> RawTokenizer<'a, 'b> {
     fn create_token(
         &mut self,
-        ty: RawTokenType,
-    ) -> RawToken<'b> {
+        ty: RawTokenKind,
+    ) -> RawToken {
         let offset = self.offset;
         let length = self.length - 1;
         let end_offset = offset + length;
@@ -264,10 +262,7 @@ impl<'a, 'b> RawTokenizer<'a, 'b> {
 
         RawToken {
             ty,
-            data: RawTokenData {
-                span,
-                src: &self.source[offset..=end_offset],
-            },
+            span,
         }
     }
 

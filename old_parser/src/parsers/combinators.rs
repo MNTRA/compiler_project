@@ -1,12 +1,14 @@
 use std::marker::PhantomData;
 
+use diagnostics::Reporter;
+
 use crate::{
     parse_stream::{
         ParseError,
         ParseResult,
         ParseStream,
     },
-    Parser,
+    Parse,
 };
 
 /// Combinators are Types that provide generalised parsing functionality this
@@ -17,18 +19,18 @@ pub struct Punctuated<T, U> {
     _marker: PhantomData<(fn() -> T, fn() -> U)>,
 }
 
-impl<'a, T, U> Parser<'a> for Punctuated<T, U>
+impl<'a, T, U> Parse<'a> for Punctuated<T, U>
 where
-    T: Parser<'a>,
-    U: Parser<'a>,
+    T: Parse<'a>,
+    U: Parse<'a>,
 {
     type Output = Vec<T::Output>;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+    fn parse(stream: &mut ParseStream<'a>, reporter: &mut Reporter) -> ParseResult<Self::Output> {
         let mut out = Vec::with_capacity(3);
         loop {
-            let item = stream.parse::<T>()?;
+            let item = stream.parse::<T>(reporter)?;
             out.push(item);
-            match stream.parse::<U>() {
+            match stream.parse::<U>(reporter) {
                 Ok(_) => continue,
                 Err(_) => break,
             };
@@ -42,18 +44,18 @@ pub struct Enclosed<T, X, U> {
     _marker: PhantomData<(fn() -> T, fn() -> X, fn() -> U)>,
 }
 
-impl<'a, T, X, U> Parser<'a> for Enclosed<T, X, U>
+impl<'a, T, X, U> Parse<'a> for Enclosed<T, X, U>
 where
-    T: Parser<'a>,
-    X: Parser<'a>,
-    U: Parser<'a>,
+    T: Parse<'a>,
+    X: Parse<'a>,
+    U: Parse<'a>,
 {
     type Output = X::Output;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+    fn parse(stream: &mut ParseStream<'a>, reporter: &mut Reporter) -> ParseResult<Self::Output> {
         let out: Self::Output;
-        stream.parse::<T>()?;
-        out = stream.parse::<X>()?;
-        stream.parse::<U>()?;
+        stream.parse::<T>(reporter)?;
+        out = stream.parse::<X>(reporter)?;
+        stream.parse::<U>(reporter)?;
         Ok(out)
     }
 }
@@ -63,28 +65,28 @@ pub struct Seperated<T, X, U> {
     _marker: PhantomData<(fn() -> T, fn() -> X, fn() -> U)>,
 }
 
-impl<'a, T, X, U> Parser<'a> for Seperated<T, X, U>
+impl<'a, T, X, U> Parse<'a> for Seperated<T, X, U>
 where
-    T: Parser<'a>,
-    X: Parser<'a>,
-    U: Parser<'a>,
+    T: Parse<'a>,
+    X: Parse<'a>,
+    U: Parse<'a>,
 {
     type Output = (T::Output, U::Output);
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        let lhs_out = stream.parse::<T>()?;
-        stream.parse::<X>()?;
-        let rhs_out = stream.parse::<U>()?;
+    fn parse(stream: &mut ParseStream<'a>, reporter: &mut Reporter) -> ParseResult<Self::Output> {
+        let lhs_out = stream.parse::<T>(reporter)?;
+        stream.parse::<X>(reporter)?;
+        let rhs_out = stream.parse::<U>(reporter)?;
         Ok((lhs_out, rhs_out))
     }
 }
 
-impl<'a, T> Parser<'a> for Option<T>
+impl<'a, T> Parse<'a> for Option<T>
 where
-    T: Parser<'a>,
+    T: Parse<'a>,
 {
     type Output = Option<T::Output>;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        match stream.parse::<T>() {
+    fn parse(stream: &mut ParseStream<'a>, reporter: &mut Reporter) -> ParseResult<Self::Output> {
+        match stream.parse::<T>(reporter) {
             Ok(item) => return Ok(Some(item)),
             Err(err) => match err {
                 ParseError::UnexpectedToken(_) => Ok(None),
@@ -94,15 +96,15 @@ where
     }
 }
 
-impl<'a, T> Parser<'a> for Vec<T>
+impl<'a, T> Parse<'a> for Vec<T>
 where
-    T: Parser<'a>,
+    T: Parse<'a>,
 {
     type Output = Vec<T::Output>;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+    fn parse(stream: &mut ParseStream<'a>, reporter: &mut Reporter) -> ParseResult<Self::Output> {
         let mut out: Vec<T::Output> = Vec::new();
         loop {
-            match stream.parse::<T>() {
+            match stream.parse::<T>(reporter) {
                 Ok(item) => out.push(item),
                 Err(err) => match err {
                     ParseError::UnexpectedToken(_) => return Ok(out),

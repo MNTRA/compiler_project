@@ -9,13 +9,12 @@ use crate::{
             Punctuated,
         },
         common::{
-            ExprScope,
             Type,
             TypedIdent,
             Visibility,
         },
     },
-    Parser,
+    Parse,
     Token,
 };
 
@@ -23,16 +22,14 @@ use crate::{
 pub struct FuncItem {
     pub vis: Visibility,
     pub sig: FnSignature,
-    pub scope: ExprScope,
 }
 
-impl<'a> Parser<'a> for FuncItem {
+impl<'a> Parse<'a> for FuncItem {
     type Output = Self;
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
         let mut out = FuncItem::default();
         stream.parse::<Token![Fn]>()?;
         out.sig = stream.parse::<FnSignature>()?;
-        out.scope = stream.parse::<ExprScope>()?;
         Ok(out)
     }
 }
@@ -46,7 +43,7 @@ pub struct FnSignature {
 
 type FuncArgs = Enclosed<Token!["("], Option<Punctuated<TypedIdent, Token![","]>>, Token![")"]>;
 
-impl<'a> Parser<'a> for FnSignature {
+impl<'a> Parse<'a> for FnSignature {
     type Output = Self;
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
         let mut out = FnSignature::default();

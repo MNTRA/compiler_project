@@ -1,5 +1,5 @@
 [package]
-name = "parser"
+name = "diagnostics"
 version = "0.1.0"
 authors = ["George Phillips <35049013+MNTRA@users.noreply.github.com>"]
 edition = "2018"
@@ -8,26 +8,14 @@ edition = "2018"
 
 [dependencies]
 
-[dependencies.slab]
-version = "*"
-
-[dependencies.mode]
+[dependencies.console]
 version = "*"
 
 [dependencies.tokio]
 version = "*"
 
-[dependencies.edit-distance]
+[dependencies.lazy_static]
 version = "*"
 
-[dependencies.lexer]
-path = "../lexer"
-
-[dependencies.ast]
-path = "../ast"
-
-[dependencies.errors]
-path = "../errors"
-
-[dependencies.diagnostics]
-path = "../diagnostics"
+[dependencies.crossbeam]
+version = "*"

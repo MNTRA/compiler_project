@@ -34,7 +34,7 @@
             "args": [],
             "cwd": "${workspaceFolder}",
             "console": "externalTerminal",
-            "internalConsoleOptions": "neverOpen"
+            "internalConsoleOptions": "neverOpen",
         },
         {
             "type": "lldb",

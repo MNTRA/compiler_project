@@ -37,10 +37,9 @@ pub(crate) fn create_raw_tokenizer_impl(input: TokenStream) -> TokenStream {
             inner: crate::raw_token_stream::RawTokenizer<'a, 'b>,
         }
         impl<'a, 'b> #struct_name<'a, 'b>{
-            fn new(source: &'b str, mut cursor: &'a mut Cursor<Chars<'b>>) -> Self {
+            fn new(cursor: &'a mut Cursor<Chars<'b>>) -> Self {
                 Self {
                     inner: RawTokenizer {
-                        source,
                         length: 0,
                         offset: cursor.offset(),
                         cursor,
@@ -72,17 +71,17 @@ pub(crate) fn create_syntax_tokenizer_impl(input: TokenStream) -> TokenStream {
 
     let out = quote! {
         struct #struct_name<'a, 'b> {
-            inner: crate::syntax_token_stream::SyntaxTokenizer<'a, 'b>,
+            inner: crate::token_stream::SyntaxTokenizer<'a, 'b>,
         }
-        impl<'a, 'b> #struct_name<'a, 'b>{
-            fn new(stream: &'a mut SyntaxTokenStream<'b>) -> Self {
+        impl<'a, 'b> #struct_name<'a, 'b> {
+            fn new(stream: &'a mut SyntaxTokenStream<'b> ) -> Self {
                 Self {
                     inner: SyntaxTokenizer::new(stream)
                 }
             }
             #func
         }
-        impl<'a, 'b> std::ops::Deref for #struct_name<'a, 'b> {
+        impl<'a, 'b> std::ops::Deref for #struct_name<'a, 'b>{
             type Target = SyntaxTokenizer<'a, 'b>;
             fn deref(&self) -> &Self::Target {
                 &self.inner

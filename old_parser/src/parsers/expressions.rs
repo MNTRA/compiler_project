@@ -13,9 +13,10 @@ use crate::{
         },
     },
     unexpected_token,
-    Parser,
+    Parse,
     Token,
 };
+
 
 #[derive(Debug)]
 pub struct LetStmt {
@@ -25,7 +26,7 @@ pub struct LetStmt {
     expr: Option<Expr>,
 }
 
-impl<'a> Parser<'a> for LetStmt {
+impl<'a> Parse<'a> for LetStmt {
     type Output = Self;
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
         stream.parse::<Token![Let]>()?;
@@ -49,7 +50,7 @@ impl<'a> Parser<'a> for LetStmt {
 
 #[derive(Default, Debug)]
 pub struct LetStmtAssign;
-impl<'a> Parser<'a> for LetStmtAssign {
+impl<'a> Parse<'a> for LetStmtAssign {
     type Output = Expr;
     fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
         stream.parse::<Token!["="]>()?;
@@ -61,9 +62,11 @@ impl<'a> Parser<'a> for LetStmtAssign {
 pub enum Expr {
     Ident(Token![Ident]),
     Literal(Token![Literal]),
+    /// `(expr, ...)`
     Tuple(Vec<Expr>),
     BinOp(Box<BinOp>),
-    Empty,
+    Statement(Box<Expr>),
+    Scope(Option<Box<Expr>>),
 }
 
 impl From<BinOp> for Expr {
@@ -74,7 +77,7 @@ impl From<Vec<Expr>> for Expr {
 }
 
 impl Default for Expr {
-    fn default() -> Self { Expr::Empty }
+    fn default() -> Self { Expr::Scope(None) }
 }
 
 impl Expr {
@@ -82,8 +85,6 @@ impl Expr {
         stream: &mut ParseStream<'a>,
         lhs: &mut Self,
     ) -> ParseResult<bool> {
-        // is_binop is used by the caller to determine whether this function
-        // successfully transformed the lhs Expr into a BinOp expr
         let mut is_binop = false;
         loop {
             if let Some(operator) = stream.parse::<Option<Token![Operator]>>()? {
@@ -119,17 +120,15 @@ impl Expr {
     }
 }
 
-impl<'a> Parser<'a> for Expr {
+impl<'a> Parse<'a> for Expr {
     type Output = Self;
     fn parse(mut stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        if let Some(mut expr) = stream.parse::<Option<Operand>>()? {
-            if Self::try_parse_binop_expr(&mut stream, &mut expr)? {
-                return Ok(expr);
-            }
+        let mut expr = stream.parse::<Operand>()?;
+        println!("Got here Expr");
+        if Self::try_parse_binop_expr(&mut stream, &mut expr)? {
             return Ok(expr);
-        } else {
-            return Ok(Self::Empty);
         }
+        return Ok(expr);
     }
 }
 
@@ -138,19 +137,11 @@ impl From<Operand> for Expr {
         match operand {
             Operand::Literal(literal) => Self::Literal(literal),
             Operand::Ident(ident) => Self::Ident(ident),
+            Operand::Scoped(expr) => Self::Scope(Some(Box::new(expr))),
         }
     }
 }
 
-pub struct ExprItem;
-impl<'a> Parser<'a> for ExprItem {
-    type Output = Expr;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        let out = stream.parse::<Expr>()?;
-        stream.parse::<Token![";"]>()?;
-        Ok(out)
-    }
-}
 
 #[derive(Debug)]
 pub struct BinOp {
@@ -162,53 +153,68 @@ pub struct BinOp {
 pub enum Operand {
     Ident(Token![Ident]),
     Literal(Token![Literal]),
+    Scoped(Expr)
 }
 
 impl Operand {
     pub fn try_parse_parens<'a>(stream: &mut ParseStream<'a>) -> ParseResult<Option<Expr>> {
         if stream.parse::<Option<Token!["("]>>()?.is_some() {
             let mut tuple = Vec::new();
-            let mut is_tuple = false;
             loop {
                 let expr = stream.parse::<Expr>()?;
                 if stream.parse::<Option<Token![","]>>()?.is_some() {
-                    is_tuple = true;
                     tuple.push(expr);
                 } else if stream.parse::<Option<Token![")"]>>()?.is_some() {
-                    if is_tuple {
+                    if !tuple.is_empty() {
                         tuple.push(expr);
                         return Ok(Some(Expr::Tuple(tuple)));
                     } else {
                         return Ok(Some(expr));
                     }
                 }
-            }
-        } else {
-            Ok(None)
+            }  
         }
+        Ok(None)
+    }
+    pub fn try_parse_braces<'a>(stream: &mut ParseStream<'a>) -> ParseResult<Option<Expr>> {
+        todo!()
     }
 }
 
-impl<'a> Parser<'a> for Operand {
+impl<'a> Parse<'a> for Operand {
     type Output = Expr;
     fn parse(mut s: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        type Braced = Enclosed<Token!["{"], Expr, Token!["}"]>;
-        if let Some(expr) = s.parse::<Option<Braced>>()? {
-            return Ok(expr);
-        }
+        // if let Some(expr) = Self::try_parse_braces(&mut s)? {
+        //     println!("Got here Operand");
+        //     return Ok(expr);
+        // }
+
 
         if let Some(expr) = Self::try_parse_parens(&mut s)? {
             return Ok(expr);
         }
-
         if let Some(literal) = s.parse::<Option<Token![Literal]>>()? {
             return Ok(Expr::from(Self::Literal(literal)));
         }
-
         if let Some(ident) = s.parse::<Option<Token![Ident]>>()? {
             return Ok(Expr::from(Self::Ident(ident)));
         }
 
         unexpected_token!(s);
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ScopeExpr;
+impl<'a> Parse<'a> for ScopeExpr {
+    type Output = Expr;
+    fn parse(mut stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+
+        stream.parse::<Token!["{"]>()?;
+        let expr = stream.parse::<Expr>()?;
+        stream.parse::<Token!["}"]>()?;
+        println!("Got here");
+
+        Ok(Expr::from(expr))
     }
 }

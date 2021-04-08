@@ -1,12 +1,12 @@
 use paste::paste;
-
+use diagnostics::Reporter;
 use crate::{
     parse_stream::{
         ParseError,
         ParseResult,
         ParseStream,
     },
-    Parser,
+    Parse,
 };
 
 macro_rules! create_parser {
@@ -41,10 +41,10 @@ macro_rules! create_parser {
         paste! {
             #[derive(Default, Debug)]
             pub struct $TY;
-            impl<'a> Parser<'a> for $TY {
+            impl<'a> Parse<'a> for $TY {
                 type Output = Self;
                 #[inline(always)]
-                fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+                fn parse(stream: &mut ParseStream<'a>, reporter: &mut Reporter) -> ParseResult<Self::Output> {
                     // println!("[ Parser call ]: {}", $TY);
                     let token = stream.peek(0)?;
                     if token.ty == $MATCH {
@@ -121,9 +121,9 @@ pub struct Ident {
     // TODO (George): Don't store string, make it a handle to an Ident Map
     value: std::string::String,
 }
-impl<'a> Parser<'a> for Ident {
+impl<'a> Parse<'a> for Ident {
     type Output = Self;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+    fn parse(stream: &mut ParseStream<'a>, reporter: &mut Reporter) -> ParseResult<Self::Output> {
         // println!("[ Parser call ]: Ident");
         let token = stream.peek(0)?;
         if token.ty == ::lexer::SyntaxTokenType::Identifier {
@@ -152,9 +152,9 @@ pub struct Literal {
     value: std::string::String,
 }
 
-impl<'a> Parser<'a> for Literal {
+impl<'a> Parse<'a> for Literal {
     type Output = Self;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+    fn parse(stream: &mut ParseStream<'a>, reporter: &mut Reporter) -> ParseResult<Self::Output> {
         type ST = ::lexer::SyntaxTokenType;
         type LT = ::lexer::LiteralType;
 
@@ -215,9 +215,9 @@ impl Operator {
     }
 }
 
-impl<'a> Parser<'a> for Operator {
+impl<'a> Parse<'a> for Operator {
     type Output = Self;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
+    fn parse(stream: &mut ParseStream<'a>, reporter: &mut Reporter) -> ParseResult<Self::Output> {
         type ST = ::lexer::SyntaxTokenType;
         type PT = ::lexer::PunctuationType;
 
@@ -305,33 +305,33 @@ macro_rules! Token {
 
 /// `==`
 pub struct EqEq;
-impl<'a> Parser<'a> for EqEq {
+impl<'a> Parse<'a> for EqEq {
     type Output = Self;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        stream.parse::<Token!["="]>()?;
-        stream.parse_immediate::<Token!["="]>()?;
+    fn parse(stream: &mut ParseStream<'a>, reporter: &mut Reporter) -> ParseResult<Self::Output> {
+        stream.parse::<Token!["="]>(reporter)?;
+        stream.parse_immediate::<Token!["="]>(reporter)?;
         Ok(Self)
     }
 }
 
 /// `->`
 pub struct RArrow;
-impl<'a> Parser<'a> for RArrow {
+impl<'a> Parse<'a> for RArrow {
     type Output = Self;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        stream.parse::<Token!["-"]>()?;
-        stream.parse_immediate::<Token![">"]>()?;
+    fn parse(stream: &mut ParseStream<'a>, reporter: &mut Reporter) -> ParseResult<Self::Output> {
+        stream.parse::<Token!["-"]>(reporter)?;
+        stream.parse_immediate::<Token![">"]>(reporter)?;
         Ok(Self)
     }
 }
 
 /// `<-`
 pub struct LArrow;
-impl<'a> Parser<'a> for LArrow {
+impl<'a> Parse<'a> for LArrow {
     type Output = Self;
-    fn parse(stream: &mut ParseStream<'a>) -> ParseResult<Self::Output> {
-        stream.parse::<Token!["<"]>()?;
-        stream.parse_immediate::<Token!["-"]>()?;
+    fn parse(stream: &mut ParseStream<'a>, reporter: &mut Reporter) -> ParseResult<Self::Output> {
+        stream.parse::<Token!["<"]>(reporter)?;
+        stream.parse_immediate::<Token!["-"]>(reporter)?;
         Ok(Self)
     }
 }

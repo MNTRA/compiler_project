@@ -37,7 +37,7 @@ impl<T: Iterator> Dynamic<T> {
         }
     }
 
-    /// Returns a reference to the item `offset` number or items ahead of
+    /// Returns a reference to the item `offset` number of items ahead of
     /// the iterator
     pub fn peek(
         &mut self,

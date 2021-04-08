@@ -1,6 +1,7 @@
 use std::any::Any;
 
 use collections::stream::Dynamic;
+use diagnostics::Reporter;
 use lexer::{
     SyntaxToken,
     SyntaxTokenStream,
@@ -11,25 +12,34 @@ use thiserror::Error;
 use crate::{
     ast::Ast,
     parsers::common::GlobalScope,
-    Parser,
+    Parse,
 };
 
 pub type ParseResult<T> = Result<T, ParseError>;
 
-pub struct SyntaxTokenParser<'src> {
+pub struct Parser<'src> {
     stream: ParseStream<'src>,
 }
 
-impl<'src> SyntaxTokenParser<'src> {
+impl<'src> Parser<'src> {
     pub fn new(src: &'src str) -> Self {
         Self {
             stream: ParseStream::new(src),
         }
     }
 
-    pub fn parse(mut self) -> ParseResult<Ast> {
-        let scope = self.stream.parse::<GlobalScope>()?;
-        Ok(Ast::from(scope))
+    pub fn parse(
+        mut self,
+        reporter: Reporter,
+    ) -> ParseResult<Ast> {
+        let result = self.stream.parse::<GlobalScope>(&mut reporter);
+        match result {
+            Ok(scope) => Ok(Ast::from(scope)),
+            Err(err) => {
+                println!("{:#?}", err);
+                Err(err)
+            },
+        }
     }
 }
 
@@ -59,24 +69,23 @@ impl<'src> ParseStream<'src> {
     /// Calls `Parser::parse` on `T` by first clearing any whitespace tokens in
     /// the stream until a token is found. This is useful when parsing
     /// syntax that doesn't care about its surrounding whitespace.
-    pub fn parse<T: Parser<'src>>(&mut self) -> ParseResult<T::Output> {
+    pub fn parse<T: Parse<'src>>(
+        &mut self,
+        reporter: &mut Reporter,
+    ) -> ParseResult<T::Output> {
         self.consume_whitespace()?;
-        self.parse_immediate::<T>()
+        self.parse_immediate::<T>(reporter)
     }
 
     /// Calls `Parser::parse` on `T` without clearing any whitespace tokens
     /// before it. This is useful when parsing syntax that consists of
     /// multiple tokens that cannot be seperated by whitespace e.g `==`,
     /// `<<`, `+=`
-    pub fn parse_immediate<T: Parser<'src>>(&mut self) -> ParseResult<T::Output> {
-        // match T::parse(&mut *self) {
-        //     Ok(item) => Ok(item),
-        //     Err(e) => {
-        //         println!("{:?}", &e);
-        //         Err(e)
-        //     }
-        // }
-        T::parse(&mut *self)
+    pub fn parse_immediate<T: Parse<'src>>(
+        &mut self,
+        reporter: &mut Reporter,
+    ) -> ParseResult<T::Output> {
+        T::parse(&mut *self, reporter)
     }
 
     pub fn parse_call<'a, T>(

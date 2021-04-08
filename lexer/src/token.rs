@@ -1,31 +1,34 @@
-// use macros::{
-//     define_keyword_token,
-// };
+use std::sync::Arc;
 
-use crate::span::Span;
+use diagnostics::span::{
+    Span,
+    NULL_SPAN,
+};
 
 // Syntax Tokens ===============================================================
 
-#[derive(Debug, Clone, Copy)]
-pub struct SyntaxToken<'a> {
-    pub ty: SyntaxTokenType,
-    pub data: SyntaxTokenData<'a>,
-}
+pub const NULL_TOKEN: SyntaxToken = SyntaxToken {
+    ty: TokenKind::Null,
+    span: NULL_SPAN,
+};
 
 #[derive(Debug, Clone, Copy)]
-pub struct SyntaxTokenData<'a> {
-    pub start_line: usize,
-    pub src: &'a str,
-    pub span: Span,
+pub struct SyntaxToken {
+    pub ty: TokenKind,
+    pub(crate) span: Span,
 }
 
-impl<'a> SyntaxTokenData<'a> {
-    pub fn token_str(&self) -> &str { self.src }
+impl SyntaxToken {
+    pub fn span(&self) -> Span { self.span }
+    pub fn get_str<'a>(&self, src: &'a String) -> &'a str {
+        &src[self.span.start()..=self.span.end()]
+    }
 }
+
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum SyntaxTokenType {
-    Punctuation(PunctuationType),
+pub enum TokenKind {
+    Punctuation(PunctuationKind),
     Identifier,
     Keyword(KeywordType),
     Literal(LiteralType),
@@ -53,13 +56,27 @@ pub enum KeywordType {
     Static,
 }
 
-impl std::fmt::Display for SyntaxTokenType {
+impl KeywordType {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            KeywordType::Let    => "let",
+            KeywordType::Fn     => "fn",
+            KeywordType::Mut    => "mut",
+            KeywordType::Pub    => "pub",
+            KeywordType::Module => "mod",
+            KeywordType::Static => "static",
+        }
+    }
+}
+
+impl std::fmt::Display for TokenKind {
     fn fmt(
         &self,
         fmt: &mut std::fmt::Formatter,
     ) -> std::fmt::Result {
         match self {
             Self::Punctuation(p) => std::fmt::Display::fmt(p, fmt),
+            Self::Identifier => fmt.write_str("Identifier"),
             _ => fmt.write_str("Needs Display Impl"),
         }
     }
@@ -68,23 +85,21 @@ impl std::fmt::Display for SyntaxTokenType {
 // Raw Tokens ==================================================================
 
 #[derive(Debug)]
-pub struct RawToken<'a> {
-    pub ty: RawTokenType,
-    pub data: RawTokenData<'a>,
+pub struct RawToken {
+    pub ty: RawTokenKind,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
-pub struct RawTokenData<'a> {
-    pub src: &'a str,
-    //pub offset: usize,
+pub struct RawTokenData {
     pub span: Span,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum RawTokenType {
+pub enum RawTokenKind {
     Word,
     Number,
-    Punctuation(PunctuationType),
+    Punctuation(PunctuationKind),
     Control(ControlType),
     Whitespace,
     Unknown,
@@ -100,7 +115,7 @@ pub enum ControlType {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum PunctuationType {
+pub enum PunctuationKind {
     /// \+
     Plus,
     /// \-
@@ -165,7 +180,7 @@ pub enum PunctuationType {
     Comma,
 }
 
-impl std::fmt::Display for PunctuationType {
+impl std::fmt::Display for PunctuationKind {
     fn fmt(
         &self,
         fmt: &mut std::fmt::Formatter,

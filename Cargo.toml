@@ -1,8 +1,12 @@
 [workspace]
 members = [
+    "driver",
+    "errors",
+    "ast",
     "collections",
+    "diagnostics",
     "lexer",
-    "parser"
+    "parser",
 ]
 
 [package]
@@ -16,9 +20,11 @@ edition = "2018"
 [dependencies]
 paste = "*"
 thiserror = "*"
+mimalloc = { version = "*", default-features = false }
+alloc_counter = "*"
 
-[dependencies.collections]
-path = "./collections"
 
-[dependencies.parser]
-path = "./parser"
+
+[dependencies.driver]
+path = "./driver"
+

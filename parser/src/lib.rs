@@ -1,39 +1,85 @@
-#![feature(type_alias_impl_trait)]
+#![feature(
+    const_fn,
+    format_args_capture
+)]
 
-pub mod ast;
-pub mod parse_stream;
-pub mod parsers;
-pub mod tokens;
 
+mod module;
+mod parser;
+mod state;
+mod function;
+mod expressions;
+
+use std::sync::Arc;
+
+use diagnostics::DiagnosticBuilder;
+use errors::{
+    CompilerBug,
+    FatalError,
+};
 use lexer::{
     console_printer::CONSOLE_PRINTER,
-    syntax_token_stream::SyntaxTokenStream,
+    SyntaxTokenStream,
 };
+use parser::Parser;
 
-pub fn run() {
-    let code = include_str!("../../test_file.code");
+pub async fn parse_root<'a>(info: ParserInfo<'a>) -> Result<(), ()> {
+    pretty_print_tokens(info.source);
+    Parser::from(info).parse_module().await.map_err(
+        |builder| builder.with_title("Invalid Syntax").report()
+    )
+}
 
-    let mut stream = SyntaxTokenStream::new(code);
+pub struct ParserInfo<'a> {
+    source: &'a String,
+}
+
+#[derive(Default)]
+pub struct ParseInfoBuilder<'a> {
+    source: Option<&'a String>,
+}
+
+impl<'a> ParseInfoBuilder<'a> {
+    pub fn new() -> Self {
+        Self {
+            source: None,
+        }
+    }
+
+    pub fn source(
+        mut self,
+        source: &'a String,
+    ) -> Self {
+        if self.source.is_none() {
+            self.source = Some(source);
+        } else {
+            CompilerBug::raise("Tried to call source() more than once", line!(), file!());
+        }
+        self
+    }
+
+    pub fn build(self) -> ParserInfo<'a> {
+        ParserInfo {
+            source: self.source.expect("Source cannot be none."),
+        }
+    }
+}
+
+fn pretty_print_tokens(src: &String) {
     let mut console = CONSOLE_PRINTER.lock().unwrap();
-
+    let mut stream = SyntaxTokenStream::new(&src);
     loop {
         let token = stream.next();
-        unsafe { console.print_syntax_token(token) }
-        //std::thread::sleep(std::time::Duration::from_micros(40));
-        if let None = token {
+        unsafe { console.print_syntax_token(src, token) }
+        if token.is_none() {
             break;
         }
     }
-    let ast = parse_stream::SyntaxTokenParser::new(code).parse().unwrap();
-    println!("{:#?}", ast);
 }
 
-use parse_stream::{
-    ParseResult,
-    ParseStream,
-};
-
-pub trait Parser<'src> {
-    type Output;
-    fn parse(stream: &mut ParseStream<'src>) -> ParseResult<Self::Output>;
+fn print_tokens(src: &String) {
+    let stream = SyntaxTokenStream::new(src);
+    for token in stream {
+        println!("{:#?}", token.ty);
+    }
 }

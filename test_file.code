@@ -1,6 +1,4 @@
 
-pub static OUTER_STATIC: String = "Outer Static";
-
-pub fn test_func (mut t: item) {
-    1 + 1
+pub fn fn_name (test: &mut Test) {
+    let name = "George";
 }

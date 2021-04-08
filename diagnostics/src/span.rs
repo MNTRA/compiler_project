@@ -1,3 +1,10 @@
+
+pub const NULL_SPAN: Span = Span {
+    start: 0,
+    end: 0,
+    line: 0,
+};
+
 /// A `Span` repesents a continuous range of source code.
 ///
 /// `Span` should be used in error reporting and printing.
@@ -5,16 +12,19 @@
 pub struct Span {
     start: usize,
     end: usize,
+    line: usize,
 }
 
 impl Span {
     pub fn new(
         start: usize,
         end: usize,
+        line: usize,
     ) -> Self {
         Self {
             start,
             end,
+            line,
         }
     }
 
@@ -56,6 +66,12 @@ impl Span {
         self.end += amt;
     }
 
+    pub fn set_line(&mut self, line: usize) {
+        self.line = line;
+    }
+
+    pub fn line(&self) -> usize { self.line }
+
     pub fn len(&self) -> usize { self.end - self.start + 1 }
 }
 
@@ -67,18 +83,7 @@ impl std::ops::AddAssign<Span> for Span {
         *self = Self {
             start: self.start,
             end: self.end + other.len(), //other.end - other.start,
-        }
-    }
-}
-
-impl std::ops::AddAssign<usize> for Span {
-    fn add_assign(
-        &mut self,
-        amt: usize,
-    ) {
-        *self = Self {
-            start: self.start + amt,
-            end: self.end + amt,
+            line: self.line,
         }
     }
 }

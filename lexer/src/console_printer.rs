@@ -13,11 +13,14 @@ use console::{
 };
 use lazy_static::lazy_static;
 
-use crate::token::{
-    ControlType,
-    LiteralType,
-    SyntaxToken,
-    SyntaxTokenType,
+use crate::{
+    token::{
+        ControlType,
+        LiteralType,
+        SyntaxToken,
+        TokenKind,
+    },
+    KeywordType,
 };
 
 lazy_static! {
@@ -102,140 +105,95 @@ impl ConsolePrinter {
 
     fn print_identifer_token(
         &self,
-        token: &SyntaxToken,
+        src: &str,
     ) -> IoResult {
-        match token.ty {
-            SyntaxTokenType::Identifier => self.term.write_str(&format!(
-                "{}",
-                style(token.data.token_str())
-                    .color256(Self::LIGHT_BLUE)
-                    .on_black()
-            )),
-            _ => unreachable!(),
-        }
+        self.term.write_str(&format!(
+            "{}",
+            style(src).color256(Self::LIGHT_BLUE).on_black()
+        ))
     }
     fn print_print_punctuation_token(
         &self,
-        token: &SyntaxToken,
+        src: &str,
     ) -> IoResult {
-        self.term
-            .write_str(&format!("{}", style(token.data.token_str()).white()))
+        self.term.write_str(&format!("{}", style(src).white()))
     }
     fn print_literal_token(
         &self,
-        token: &SyntaxToken,
+        src: &str,
+        kind: LiteralType,
     ) -> IoResult {
-        match token.ty {
-            SyntaxTokenType::Literal(LiteralType::String)
-            | SyntaxTokenType::Literal(LiteralType::Char) => self.term.write_str(&format!(
-                "{}",
-                style(token.data.token_str())
-                    .color256(Self::ORANGE)
-                    .on_black()
-            )),
-            SyntaxTokenType::Literal(LiteralType::Integer)
-            | SyntaxTokenType::Literal(LiteralType::Float) => self.term.write_str(&format!(
-                "{}",
-                style(token.data.token_str())
-                    .color256(Self::YELLOW)
-                    .on_black()
-            )),
-            _ => unreachable!(),
+        match kind {
+            LiteralType::String | LiteralType::Char => self
+                .term
+                .write_str(&format!("{}", style(src).color256(Self::ORANGE).on_black())),
+            LiteralType::Integer | LiteralType::Float => self
+                .term
+                .write_str(&format!("{}", style(src).color256(Self::YELLOW).on_black())),
         }
     }
     fn print_keyword_token(
         &self,
-        token: &SyntaxToken,
+        src: &str,
+        kind: KeywordType,
     ) -> IoResult {
-        match token.ty {
-            // SyntaxTokenType::Keyword(KeywordType::Pub) => self.term.write_str(&format!(
-            //     "{}",
-            //     style(token.data.token_str())
-            //         .color256(Self::BLUE)
-            //         .on_black()
-            // )),
-            // SyntaxTokenType::Keyword(KeywordType::Module) => self.term.write_str(&format!(
-            //     "{}",
-            //     style(token.data.token_str())
-            //         .color256(Self::BLUE)
-            //         .on_black()
-            // )),
-            // SyntaxTokenType::Keyword(KeywordType::Import) => self.term.write_str(&format!(
-            //     "{}",
-            //     style(token.data.token_str())
-            //         .color256(Self::BLUE)
-            //         .on_black()
-            // )),
-            // SyntaxTokenType::Keyword(KeywordType::Fn) => self.term.write_str(&format!(
-            //     "{}",
-            //     style(token.data.token_str())
-            //         .color256(Self::PURPLE)
-            //         .on_black()
-            // )),
-            // SyntaxTokenType::Keyword(_) => self.term.write_str(&format!(
-            //     "{}",
-            //     style(token.data.token_str())
-            //         .color256(Self::BLUE)
-            //         .on_black()
-            // )),
-            _ => self.term.write_str(&format!(
-                "{}",
-                style(token.data.token_str())
-                    .color256(Self::BLUE)
-                    .on_black()
-            )),
+        match kind {
+            KeywordType::Fn => self
+                .term
+                .write_str(&format!("{}", style(src).color256(Self::PURPLE).on_black())),
+            _ => self
+                .term
+                .write_str(&format!("{}", style(src).color256(Self::BLUE).on_black())),
         }
     }
     fn print_whitespace_token(
         &self,
-        token: &SyntaxToken,
+        src: &str,
     ) -> IoResult {
-        self.term.write_str(token.data.token_str())
+        self.term.write_str(src)
     }
     fn print_control_token(
         &mut self,
-        token: &SyntaxToken,
+        kind: ControlType,
     ) -> IoResult {
-        match token.ty {
-            SyntaxTokenType::Control(ControlType::NewLine) => {
+        match kind {
+            ControlType::NewLine => {
                 self.term.write_line(" ")?;
                 self.should_print_line_number = true;
                 Ok(())
             },
-            SyntaxTokenType::Control(ControlType::Tab) => self.term.write_str("   "),
-            SyntaxTokenType::Control(ControlType::Null) => self.term.write_str(&format!(
+            ControlType::Tab => self.term.write_str("   "),
+            ControlType::Null => self.term.write_str(&format!(
                 "{}",
                 style("NULL").black().color256(Self::PURPLE).bold()
             )),
-            _ => unreachable!(),
         }
     }
     fn print_unknown_token(
         &self,
-        token: &SyntaxToken,
+        src: &str,
     ) -> IoResult {
         self.term.write_str(&format!(
             "{}",
-            style(token.data.token_str())
-                .black()
-                .on_color256(Self::RED)
-                .bold()
+            style(src).black().on_color256(Self::RED).bold()
         ))
     }
 
     fn print_syntax_token_impl_(
         &mut self,
+        src: &String,
         token: &SyntaxToken,
     ) {
+        let src = token.get_str(src);
         let result = match token.ty {
-            SyntaxTokenType::Punctuation(_) => self.print_print_punctuation_token(token),
-            SyntaxTokenType::Identifier => self.print_identifer_token(token),
-            SyntaxTokenType::Literal(_) => self.print_literal_token(token),
-            SyntaxTokenType::Keyword(_) => self.print_keyword_token(token),
-            SyntaxTokenType::Whitespace => self.print_whitespace_token(token),
-            SyntaxTokenType::Control(_) => self.print_control_token(token),
-            SyntaxTokenType::Unknown => self.print_unknown_token(token),
-            SyntaxTokenType::Null => unreachable!(),
+            TokenKind::Punctuation(_) => self.print_print_punctuation_token(src),
+            TokenKind::Identifier => self.print_identifer_token(src),
+            TokenKind::Literal(l) => self.print_literal_token(src, l),
+            TokenKind::Keyword(k) => self.print_keyword_token(src, k),
+            TokenKind::Whitespace => self.print_whitespace_token(src),
+            TokenKind::Control(c) => self.print_control_token(c),
+            TokenKind::Unknown => self.print_unknown_token(src),
+            TokenKind::Null => unreachable!(),
         };
         match result {
             Ok(_) => {},
@@ -245,6 +203,7 @@ impl ConsolePrinter {
 
     pub unsafe fn print_syntax_token(
         &mut self,
+        src: &String,
         token: Option<SyntaxToken>,
     ) {
         static PRINT_TOP: std::sync::Once = std::sync::Once::new();
@@ -260,15 +219,15 @@ impl ConsolePrinter {
                 TEMP_LINE += 1;
                 self.should_print_line_number = false;
             }
-            self.print_syntax_token_impl_(&token.unwrap());
+            self.print_syntax_token_impl_(src, &token.unwrap());
         } else {
             // Safety: safe as long as only 1 thread calls this function at a time
             if self.should_print_line_number {
                 self.print_line_number(TEMP_LINE).unwrap();
                 TEMP_LINE += 1;
                 self.should_print_line_number = false;
-                self.term.write_line("").unwrap();
             }
+            self.term.write_line("").unwrap();
             let bottom = self.create_source_code_block_bounds_str(" ");
             self.term.write_line(&self.trunc_str(&bottom)).unwrap();
         }
